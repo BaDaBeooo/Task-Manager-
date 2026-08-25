@@ -2,9 +2,9 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .database.connection import Base, engine
-from .models import User
+from .models import Subtask, Task, User
 from .routers.auth import router as auth_router
-
+from .routers.tasks import router as tasks_router
 
 Base.metadata.create_all(bind=engine)
 
@@ -14,7 +14,6 @@ app = FastAPI(
 )
 
 
-# Allow frontend to communicate with backend
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -25,7 +24,7 @@ app.add_middleware(
 
 
 app.include_router(auth_router)
-
+app.include_router(tasks_router)
 
 @app.get("/")
 def root():
