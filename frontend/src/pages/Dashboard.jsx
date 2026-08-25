@@ -5,83 +5,103 @@ import api from "../services/api";
 import Sidebar from "../components/Sidebar";
 import Topbar from "../components/Topbar";
 import StatCard from "../components/StatCard";
-import TaskCard from "../components/TaskCard";
 import TaskModal from "../components/TaskModal";
 
 import "../Dashboard.css";
 
 
 function Dashboard() {
-  const [user, setUser] = useState(null);
 
-  const [tasks, setTasks] = useState([]);
+  const [user, setUser] =
+    useState(null);
 
-  const [loading, setLoading] = useState(true);
+  const [tasks, setTasks] =
+    useState([]);
 
-  const [error, setError] = useState("");
+  const [loading, setLoading] =
+    useState(true);
+
+  const [error, setError] =
+    useState("");
 
   const [showTaskModal, setShowTaskModal] =
     useState(false);
 
 
-  /*
-   * LOAD DASHBOARD DATA
-   */
+  // =====================================================
+  // LOAD DASHBOARD DATA
+  // =====================================================
+
   useEffect(() => {
-    const loadDashboard = async () => {
-      try {
-        setLoading(true);
-        setError("");
+
+    const loadDashboard =
+      async () => {
+
+        try {
+
+          setLoading(true);
+
+          setError("");
 
 
-        const [
-          userResponse,
-          tasksResponse,
-        ] = await Promise.all([
-          api.get("/auth/me"),
-          api.get("/tasks"),
-        ]);
+          const [
+            userResponse,
+            tasksResponse,
+          ] = await Promise.all([
+
+            api.get("/auth/me"),
+
+            api.get("/tasks"),
+
+          ]);
 
 
-        setUser(userResponse.data);
-
-        setTasks(tasksResponse.data);
-
-      } catch (error) {
-
-        console.error(
-          "Dashboard error:",
-          error
-        );
-
-
-        /*
-         * TOKEN KHÔNG HỢP LỆ
-         */
-        if (
-          error.response?.status === 401
-        ) {
-
-          localStorage.removeItem(
-            "access_token"
+          setUser(
+            userResponse.data
           );
 
-          window.location.href = "/";
 
-          return;
+          setTasks(
+            tasksResponse.data
+          );
+
+
+        } catch (error) {
+
+          console.error(
+            "Dashboard error:",
+            error
+          );
+
+
+          if (
+            error.response?.status === 401
+          ) {
+
+            localStorage.removeItem(
+              "access_token"
+            );
+
+            window.location.href = "/";
+
+            return;
+
+          }
+
+
+          setError(
+            error.response?.data?.detail ||
+            "Không thể tải dữ liệu Dashboard."
+          );
+
+
+        } finally {
+
+          setLoading(false);
+
         }
 
-
-        setError(
-          "Không thể tải dữ liệu Dashboard."
-        );
-
-      } finally {
-
-        setLoading(false);
-
-      }
-    };
+      };
 
 
     loadDashboard();
@@ -89,9 +109,10 @@ function Dashboard() {
   }, []);
 
 
-  /*
-   * LOGOUT
-   */
+  // =====================================================
+  // LOGOUT
+  // =====================================================
+
   const handleLogout = () => {
 
     localStorage.removeItem(
@@ -103,12 +124,10 @@ function Dashboard() {
   };
 
 
-  /*
-   * TASK CREATED
-   *
-   * TaskModal gọi function này
-   * sau khi POST /tasks thành công.
-   */
+  // =====================================================
+  // TASK CREATED
+  // =====================================================
+
   const handleTaskCreated = (
     newTask
   ) => {
@@ -120,12 +139,16 @@ function Dashboard() {
       ]
     );
 
+
+    setShowTaskModal(false);
+
   };
 
 
-  /*
-   * STATISTICS
-   */
+  // =====================================================
+  // STATISTICS
+  // =====================================================
+
   const totalTasks =
     tasks.length;
 
@@ -151,36 +174,117 @@ function Dashboard() {
     ).length;
 
 
-  /*
-   * LOADING
-   */
+  // =====================================================
+  // OVERDUE
+  // =====================================================
+
+  const now =
+    new Date();
+
+
+  const overdueTasks =
+    tasks.filter(
+      (task) => {
+
+        if (
+          !task.deadline ||
+          task.status === "completed"
+        ) {
+
+          return false;
+
+        }
+
+
+        return (
+          new Date(
+            task.deadline
+          ) < now
+        );
+
+      }
+    ).length;
+
+
+  // =====================================================
+  // COMPLETION RATE
+  // =====================================================
+
+  const completionRate =
+    totalTasks === 0
+      ? 0
+      : Math.round(
+          (
+            completedTasks /
+            totalTasks
+          ) * 100
+        );
+
+
+  // =====================================================
+  // PROGRESS
+  // =====================================================
+
+  const progressWidth =
+    Math.min(
+      Math.max(
+        completionRate,
+        0
+      ),
+      100
+    );
+
+
+  // =====================================================
+  // LOADING
+  // =====================================================
+
   if (loading) {
 
     return (
-      <div className="dashboard-loading">
 
-        <div className="loading-spinner" />
+      <div className="dashboard-layout">
 
-        <span>
-          Đang tải Dashboard...
-        </span>
+        <Sidebar />
+
+        <main className="dashboard-main">
+
+          <Topbar
+            user={user}
+            onLogout={handleLogout}
+          />
+
+          <div className="dashboard-loading-content">
+
+            <div className="loading-spinner" />
+
+            <span>
+              Đang tải Dashboard...
+            </span>
+
+          </div>
+
+        </main>
 
       </div>
+
     );
 
   }
 
 
-  /*
-   * DASHBOARD
-   */
+  // =====================================================
+  // DASHBOARD
+  // =====================================================
+
   return (
+
     <div className="dashboard-layout">
 
 
-      {/* =========================
+      {/* =================================================
           CREATE TASK MODAL
-          ========================= */}
+      ================================================= */}
 
       {showTaskModal && (
 
@@ -192,28 +296,29 @@ function Dashboard() {
           onCreated={
             handleTaskCreated
           }
+
         />
 
       )}
 
 
-      {/* =========================
+      {/* =================================================
           SIDEBAR
-          ========================= */}
+      ================================================= */}
 
       <Sidebar />
 
 
-      {/* =========================
+      {/* =================================================
           MAIN
-          ========================= */}
+      ================================================= */}
 
       <main className="dashboard-main">
 
 
-        {/* =========================
+        {/* =================================================
             TOPBAR
-            ========================= */}
+        ================================================= */}
 
         <Topbar
           user={user}
@@ -221,16 +326,16 @@ function Dashboard() {
         />
 
 
-        {/* =========================
+        {/* =================================================
             CONTENT
-            ========================= */}
+        ================================================= */}
 
         <div className="dashboard-content">
 
 
-          {/* =========================
-              WELCOME
-              ========================= */}
+          {/* =================================================
+              HEADER
+          ================================================= */}
 
           <div className="welcome-section">
 
@@ -245,8 +350,8 @@ function Dashboard() {
 
 
               <p>
-                Đây là tình hình công việc
-                của nhóm hiện tại.
+                Tổng quan tình hình
+                công việc của bạn.
               </p>
 
             </div>
@@ -254,7 +359,7 @@ function Dashboard() {
 
             <button
               className="create-task-button"
-
+              type="button"
               onClick={() =>
                 setShowTaskModal(true)
               }
@@ -265,9 +370,9 @@ function Dashboard() {
           </div>
 
 
-          {/* =========================
+          {/* =================================================
               ERROR
-              ========================= */}
+          ================================================= */}
 
           {error && (
 
@@ -278,9 +383,9 @@ function Dashboard() {
           )}
 
 
-          {/* =========================
+          {/* =================================================
               STATISTICS
-              ========================= */}
+          ================================================= */}
 
           <div className="stats-grid">
 
@@ -319,96 +424,335 @@ function Dashboard() {
           </div>
 
 
-          {/* =========================
-              TASK SECTION
-              ========================= */}
+          {/* =================================================
+              SECONDARY STATISTICS
+          ================================================= */}
 
-          <section className="tasks-section">
+          <div className="dashboard-summary-grid">
 
 
-            {/* HEADER */}
+            {/* COMPLETION RATE */}
 
-            <div className="section-header">
+            <section className="dashboard-panel">
+
+              <div className="dashboard-panel-header">
+
+                <div>
+
+                  <h2>
+                    Tỷ lệ hoàn thành
+                  </h2>
+
+                  <p>
+                    Tiến độ hoàn thành
+                    công việc
+                  </p>
+
+                </div>
+
+
+                <div className="dashboard-panel-value">
+                  {completionRate}%
+                </div>
+
+              </div>
+
+
+              <div className="dashboard-progress">
+
+                <div className="dashboard-progress-track">
+
+                  <div
+                    className="dashboard-progress-fill"
+                    style={{
+                      width:
+                        `${progressWidth}%`,
+                    }}
+                  />
+
+                </div>
+
+              </div>
+
+
+              <div className="dashboard-progress-info">
+
+                <span>
+                  {completedTasks} hoàn thành
+                </span>
+
+                <span>
+                  {totalTasks} tổng cộng
+                </span>
+
+              </div>
+
+            </section>
+
+
+            {/* OVERDUE */}
+
+            <section className="dashboard-panel">
+
+              <div className="dashboard-panel-header">
+
+                <div>
+
+                  <h2>
+                    Công việc quá hạn
+                  </h2>
+
+                  <p>
+                    Các công việc đã
+                    vượt deadline
+                  </p>
+
+                </div>
+
+
+                <div
+                  className={`dashboard-panel-value ${
+                    overdueTasks > 0
+                      ? "dashboard-danger-value"
+                      : "dashboard-success-value"
+                  }`}
+                >
+                  {overdueTasks}
+                </div>
+
+              </div>
+
+
+              <div className="dashboard-panel-status">
+
+                {overdueTasks > 0 ? (
+
+                  <span className="dashboard-status-danger">
+                    ⚠ Cần xử lý
+                  </span>
+
+                ) : (
+
+                  <span className="dashboard-status-success">
+                    ✓ Không có công việc quá hạn
+                  </span>
+
+                )}
+
+              </div>
+
+            </section>
+
+
+          </div>
+
+
+          {/* =================================================
+              KPI
+          ================================================= */}
+
+          <section className="dashboard-kpi-panel">
+
+
+            <div className="dashboard-kpi-header">
 
               <div>
 
                 <h2>
-                  Công việc gần đây
+                  KPI
                 </h2>
 
-
                 <p>
-                  Các công việc mới nhất
-                  trong nhóm
+                  Theo dõi hiệu suất công việc
                 </p>
 
               </div>
 
 
-              <button
-                className="view-all-button"
-                type="button"
-              >
-                Xem tất cả →
-              </button>
+              <span className="dashboard-kpi-badge">
+                Chưa thiết lập
+              </span>
 
             </div>
 
 
-            {/* =========================
-                TASK LIST
-                ========================= */}
+            <div className="dashboard-kpi-content">
 
-            {tasks.length === 0 ? (
 
-              <div className="empty-state">
+              <div className="dashboard-kpi-icon">
+                🎯
+              </div>
 
-                <div className="empty-icon">
-                  📋
+
+              <div className="dashboard-kpi-text">
+
+                <strong>
+                  KPI chưa được thiết lập
+                </strong>
+
+                <p>
+                  Hệ thống sẽ hiển thị
+                  chỉ số KPI khi cấu hình
+                  tiêu chí đánh giá.
+                </p>
+
+              </div>
+
+            </div>
+
+
+          </section>
+
+
+          {/* =================================================
+              STATUS SUMMARY
+          ================================================= */}
+
+          <section className="dashboard-status-panel">
+
+
+            <div className="dashboard-panel-header">
+
+              <div>
+
+                <h2>
+                  Phân bổ công việc
+                </h2>
+
+                <p>
+                  Thống kê theo trạng thái
+                </p>
+
+              </div>
+
+            </div>
+
+
+            <div className="dashboard-status-list">
+
+
+              {/* TODO */}
+
+              <div className="dashboard-status-row">
+
+                <div className="dashboard-status-label">
+
+                  <span className="dashboard-status-dot todo" />
+
+                  <span>
+                    Chưa làm
+                  </span>
+
                 </div>
 
 
-                <h3>
-                  Chưa có công việc
-                </h3>
+                <div className="dashboard-status-bar">
+
+                  <div
+                    className="dashboard-status-fill todo"
+                    style={{
+                      width:
+                        totalTasks === 0
+                          ? "0%"
+                          : `${(
+                              todoTasks /
+                              totalTasks
+                            ) * 100}%`,
+                    }}
+                  />
+
+                </div>
 
 
-                <p>
-                  Tạo công việc đầu tiên
-                  cho nhóm của bạn.
-                </p>
-
-
-                <button
-                  className="create-task-button"
-                  type="button"
-                  onClick={() =>
-                    setShowTaskModal(true)
-                  }
-                >
-                  + Tạo công việc
-                </button>
-
-              </div>
-
-            ) : (
-
-              <div className="task-list">
-
-                {tasks
-                  .slice(0, 10)
-                  .map((task) => (
-
-                    <TaskCard
-                      key={task.id}
-                      task={task}
-                    />
-
-                  ))}
+                <strong>
+                  {todoTasks}
+                </strong>
 
               </div>
 
-            )}
+
+              {/* IN PROGRESS */}
+
+              <div className="dashboard-status-row">
+
+                <div className="dashboard-status-label">
+
+                  <span className="dashboard-status-dot progress" />
+
+                  <span>
+                    Đang làm
+                  </span>
+
+                </div>
+
+
+                <div className="dashboard-status-bar">
+
+                  <div
+                    className="dashboard-status-fill progress"
+                    style={{
+                      width:
+                        totalTasks === 0
+                          ? "0%"
+                          : `${(
+                              inProgressTasks /
+                              totalTasks
+                            ) * 100}%`,
+                    }}
+                  />
+
+                </div>
+
+
+                <strong>
+                  {inProgressTasks}
+                </strong>
+
+              </div>
+
+
+              {/* COMPLETED */}
+
+              <div className="dashboard-status-row">
+
+                <div className="dashboard-status-label">
+
+                  <span className="dashboard-status-dot completed" />
+
+                  <span>
+                    Hoàn thành
+                  </span>
+
+                </div>
+
+
+                <div className="dashboard-status-bar">
+
+                  <div
+                    className="dashboard-status-fill completed"
+                    style={{
+                      width:
+                        totalTasks === 0
+                          ? "0%"
+                          : `${(
+                              completedTasks /
+                              totalTasks
+                            ) * 100}%`,
+                    }}
+                  />
+
+                </div>
+
+
+                <strong>
+                  {completedTasks}
+                </strong>
+
+              </div>
+
+
+            </div>
+
 
           </section>
 
@@ -420,7 +764,9 @@ function Dashboard() {
 
 
     </div>
+
   );
+
 }
 
 

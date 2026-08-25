@@ -32,6 +32,101 @@ class SubtaskUpdateRequest(BaseModel):
 
 
 # =========================================================
+# PERMISSION HELPERS
+# =========================================================
+
+def is_admin(current_user) -> bool:
+    """
+    Kiểm tra user hiện tại có phải Admin hay không.
+    Role hiện tại là Role object, không còn là string.
+    """
+
+    return (
+        current_user.role is not None
+        and current_user.role.code == "admin"
+    )
+
+
+def is_task_creator(
+    current_user,
+    task,
+) -> bool:
+
+    return (
+        current_user.id == task.creator_id
+    )
+
+
+def is_task_assignee(
+    current_user,
+    task,
+) -> bool:
+
+    return (
+        current_user.id == task.assignee_id
+    )
+
+
+def is_task_supporter(
+    current_user,
+    task_id: int,
+    db: Session,
+) -> bool:
+
+    return (
+        db.query(TaskSupporter)
+        .filter(
+            TaskSupporter.task_id == task_id,
+            TaskSupporter.user_id == current_user.id,
+        )
+        .first()
+        is not None
+    )
+
+
+def can_view_task(
+    current_user,
+    task,
+    db: Session,
+) -> bool:
+
+    if is_admin(current_user):
+        return True
+
+    if is_task_creator(
+        current_user,
+        task,
+    ):
+        return True
+
+    if is_task_assignee(
+        current_user,
+        task,
+    ):
+        return True
+
+    return is_task_supporter(
+        current_user,
+        task.id,
+        db,
+    )
+
+
+def can_manage_task(
+    current_user,
+    task,
+) -> bool:
+
+    return (
+        is_admin(current_user)
+        or is_task_creator(
+            current_user,
+            task,
+        )
+    )
+
+
+# =========================================================
 # CREATE TASK
 # =========================================================
 
@@ -45,6 +140,7 @@ def create_new_task(
     current_user=Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+
     return create_task(
         db=db,
         task_data=task_data,
@@ -65,6 +161,7 @@ def list_tasks(
     current_user=Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+
     return get_tasks(
         db,
         current_user=current_user,
@@ -85,6 +182,7 @@ def get_single_task(
     current_user=Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+
     task = get_task(
         db,
         task_id,
@@ -95,6 +193,18 @@ def get_single_task(
             status_code=404,
             detail="Task not found",
         )
+
+
+    if not can_view_task(
+        current_user,
+        task,
+        db,
+    ):
+        raise HTTPException(
+            status_code=403,
+            detail="You do not have permission to view this task",
+        )
+
 
     return task
 
@@ -113,6 +223,7 @@ def add_task_supporter(
     current_user=Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+
     task = get_task(
         db,
         task_id,
@@ -125,10 +236,9 @@ def add_task_supporter(
         )
 
 
-    # Chỉ creator hoặc admin được quản lý supporter
-    if (
-        current_user.id != task.creator_id
-        and current_user.role != "admin"
+    if not can_manage_task(
+        current_user,
+        task,
     ):
         raise HTTPException(
             status_code=403,
@@ -150,6 +260,7 @@ def add_task_supporter(
 
     # Assignee chính không đồng thời là supporter
     if task.assignee_id == user_id:
+
         raise HTTPException(
             status_code=400,
             detail="Assignee cannot also be a supporter",
@@ -166,8 +277,8 @@ def add_task_supporter(
         .first()
     )
 
-
     if existing:
+
         raise HTTPException(
             status_code=400,
             detail="User is already a supporter",
@@ -179,9 +290,10 @@ def add_task_supporter(
         user_id=user_id,
     )
 
-
     db.add(supporter)
+
     db.commit()
+
     db.refresh(supporter)
 
 
@@ -201,6 +313,7 @@ def remove_task_supporter(
     current_user=Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+
     task = get_task(
         db,
         task_id,
@@ -213,10 +326,9 @@ def remove_task_supporter(
         )
 
 
-    # Chỉ creator hoặc admin được quản lý supporter
-    if (
-        current_user.id != task.creator_id
-        and current_user.role != "admin"
+    if not can_manage_task(
+        current_user,
+        task,
     ):
         raise HTTPException(
             status_code=403,
@@ -233,7 +345,6 @@ def remove_task_supporter(
         .first()
     )
 
-
     if not supporter:
         raise HTTPException(
             status_code=404,
@@ -241,7 +352,10 @@ def remove_task_supporter(
         )
 
 
-    db.delete(supporter)
+    db.delete(
+        supporter
+    )
+
     db.commit()
 
 
@@ -264,6 +378,7 @@ def update_existing_task(
     current_user=Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+
     task = get_task(
         db,
         task_id,
@@ -273,6 +388,21 @@ def update_existing_task(
         raise HTTPException(
             status_code=404,
             detail="Task not found",
+        )
+
+
+    # Chỉ creator hoặc admin được sửa thông tin task.
+    #
+    # Assignee/supporter chỉ được cập nhật subtask
+    # thông qua API riêng bên dưới.
+
+    if not can_manage_task(
+        current_user,
+        task,
+    ):
+        raise HTTPException(
+            status_code=403,
+            detail="You do not have permission to update this task",
         )
 
 
@@ -298,6 +428,7 @@ def update_task_subtask(
     current_user=Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+
     task = get_task(
         db,
         task_id,
@@ -310,24 +441,13 @@ def update_task_subtask(
         )
 
 
-    # Creator, assignee chính hoặc supporter
+    # Admin / Creator / Assignee / Supporter
     # đều được cập nhật subtask.
 
-    is_supporter = (
-        db.query(TaskSupporter)
-        .filter(
-            TaskSupporter.task_id == task_id,
-            TaskSupporter.user_id == current_user.id,
-        )
-        .first()
-        is not None
-    )
-
-
-    if (
-        current_user.id != task.creator_id
-        and current_user.id != task.assignee_id
-        and not is_supporter
+    if not can_view_task(
+        current_user,
+        task,
+        db,
     ):
         raise HTTPException(
             status_code=403,
@@ -377,6 +497,7 @@ def delete_existing_task(
     current_user=Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+
     task = get_task(
         db,
         task_id,
@@ -389,9 +510,9 @@ def delete_existing_task(
         )
 
 
-    if (
-        current_user.id != task.creator_id
-        and current_user.role != "admin"
+    if not can_manage_task(
+        current_user,
+        task,
     ):
         raise HTTPException(
             status_code=403,

@@ -32,6 +32,20 @@ function MyTasks() {
 
 
   // =====================================================
+  // FILTER
+  // =====================================================
+
+  const [search, setSearch] =
+    useState("");
+
+  const [statusFilter, setStatusFilter] =
+    useState("all");
+
+  const [priorityFilter, setPriorityFilter] =
+    useState("all");
+
+
+  // =====================================================
   // LOAD DATA
   // =====================================================
 
@@ -64,11 +78,9 @@ function MyTasks() {
         userResponse.data
       );
 
-
       setTasks(
         tasksResponse.data
       );
-
 
       setUsers(
         usersResponse.data
@@ -94,10 +106,12 @@ function MyTasks() {
         window.location.href = "/";
 
         return;
+
       }
 
 
       setError(
+        error.response?.data?.detail ||
         "Không thể tải công việc của bạn."
       );
 
@@ -141,7 +155,9 @@ function MyTasks() {
     task
   ) => {
 
-    setSelectedTask(task);
+    setSelectedTask(
+      task
+    );
 
   };
 
@@ -178,7 +194,9 @@ function MyTasks() {
 
   const handleCloseDetail = () => {
 
-    setSelectedTask(null);
+    setSelectedTask(
+      null
+    );
 
   };
 
@@ -200,13 +218,15 @@ function MyTasks() {
     );
 
 
-    setSelectedTask(null);
+    setSelectedTask(
+      null
+    );
 
   };
 
 
   // =====================================================
-  // STATS
+  // STATISTICS
   // =====================================================
 
   const totalTasks =
@@ -235,6 +255,67 @@ function MyTasks() {
 
 
   // =====================================================
+  // FILTERED TASKS
+  // =====================================================
+
+  const filteredTasks =
+    tasks.filter(
+      (task) => {
+
+        const matchesStatus =
+          statusFilter === "all" ||
+          task.status === statusFilter;
+
+
+        const matchesPriority =
+          priorityFilter === "all" ||
+          task.priority === priorityFilter;
+
+
+        const searchText =
+          search
+            .trim()
+            .toLowerCase();
+
+
+        const matchesSearch =
+          !searchText ||
+          task.title
+            ?.toLowerCase()
+            .includes(searchText) ||
+          task.description
+            ?.toLowerCase()
+            .includes(searchText);
+
+
+        return (
+          matchesStatus &&
+          matchesPriority &&
+          matchesSearch
+        );
+
+      }
+    );
+    const sortedTasks = [
+  ...filteredTasks,
+].sort((a, b) => {
+
+  const aCompleted =
+    a.status === "completed";
+
+  const bCompleted =
+    b.status === "completed";
+
+  if (
+    aCompleted === bCompleted
+  ) {
+    return 0;
+  }
+
+  return aCompleted ? 1 : -1;
+});
+
+  // =====================================================
   // LOADING
   // =====================================================
 
@@ -242,13 +323,28 @@ function MyTasks() {
 
     return (
 
-      <div className="dashboard-loading">
+      <div className="dashboard-layout">
 
-        <div className="loading-spinner" />
+        <Sidebar />
 
-        <span>
-          Đang tải công việc...
-        </span>
+        <main className="dashboard-main">
+
+          <Topbar
+            user={user}
+            onLogout={handleLogout}
+          />
+
+          <div className="dashboard-loading-content">
+
+            <div className="loading-spinner" />
+
+            <span>
+              Đang tải công việc...
+            </span>
+
+          </div>
+
+        </main>
 
       </div>
 
@@ -287,7 +383,9 @@ function MyTasks() {
         <div className="dashboard-content">
 
 
-          {/* HEADER */}
+          {/* =================================================
+              HEADER
+          ================================================= */}
 
           <div className="welcome-section">
 
@@ -299,7 +397,7 @@ function MyTasks() {
 
               <p>
                 Các công việc được giao
-                cho bạn.
+                hoặc bạn đang hỗ trợ.
               </p>
 
             </div>
@@ -318,12 +416,12 @@ function MyTasks() {
           )}
 
 
-          {/* STATS */}
+          {/* =================================================
+              STATISTICS
+          ================================================= */}
 
           <div className="stats-grid">
 
-
-            {/* TOTAL */}
 
             <div className="stat-card">
 
@@ -344,13 +442,11 @@ function MyTasks() {
               </div>
 
               <div className="stat-card-description">
-                Công việc được giao
+                Được giao hoặc hỗ trợ
               </div>
 
             </div>
 
-
-            {/* TODO */}
 
             <div className="stat-card">
 
@@ -371,13 +467,11 @@ function MyTasks() {
               </div>
 
               <div className="stat-card-description">
-                Công việc đang chờ
+                Đang chờ xử lý
               </div>
 
             </div>
 
-
-            {/* IN PROGRESS */}
 
             <div className="stat-card">
 
@@ -398,13 +492,11 @@ function MyTasks() {
               </div>
 
               <div className="stat-card-description">
-                Công việc đang thực hiện
+                Đang thực hiện
               </div>
 
             </div>
 
-
-            {/* COMPLETED */}
 
             <div className="stat-card">
 
@@ -425,7 +517,7 @@ function MyTasks() {
               </div>
 
               <div className="stat-card-description">
-                Công việc hoàn tất
+                Đã hoàn tất
               </div>
 
             </div>
@@ -434,7 +526,94 @@ function MyTasks() {
           </div>
 
 
-          {/* TASKS */}
+          {/* =================================================
+              SEARCH + FILTER
+          ================================================= */}
+
+          <div className="tasks-toolbar">
+
+
+            <div className="tasks-search">
+
+              <input
+                type="text"
+                placeholder="Tìm kiếm công việc..."
+                value={search}
+                onChange={(event) =>
+                  setSearch(
+                    event.target.value
+                  )
+                }
+              />
+
+            </div>
+
+
+            <div className="tasks-filters">
+
+              <select
+                value={statusFilter}
+                onChange={(event) =>
+                  setStatusFilter(
+                    event.target.value
+                  )
+                }
+              >
+
+                <option value="all">
+                  Tất cả trạng thái
+                </option>
+
+                <option value="todo">
+                  Chưa làm
+                </option>
+
+                <option value="in_progress">
+                  Đang làm
+                </option>
+
+                <option value="completed">
+                  Hoàn thành
+                </option>
+
+              </select>
+
+
+              <select
+                value={priorityFilter}
+                onChange={(event) =>
+                  setPriorityFilter(
+                    event.target.value
+                  )
+                }
+              >
+
+                <option value="all">
+                  Tất cả ưu tiên
+                </option>
+
+                <option value="high">
+                  Cao
+                </option>
+
+                <option value="medium">
+                  Trung bình
+                </option>
+
+                <option value="low">
+                  Thấp
+                </option>
+
+              </select>
+
+            </div>
+
+          </div>
+
+
+          {/* =================================================
+              TASK LIST
+          ================================================= */}
 
           <section className="tasks-section">
 
@@ -444,12 +623,12 @@ function MyTasks() {
               <div>
 
                 <h2>
-                  Công việc được giao
+                  Công việc của tôi
                 </h2>
 
                 <p>
-                  Danh sách công việc
-                  bạn cần thực hiện
+                  {filteredTasks.length}{" "}
+                  công việc
                 </p>
 
               </div>
@@ -457,7 +636,7 @@ function MyTasks() {
             </div>
 
 
-            {tasks.length === 0 ? (
+            {filteredTasks.length === 0 ? (
 
               <div className="empty-state">
 
@@ -466,12 +645,12 @@ function MyTasks() {
                 </div>
 
                 <h3>
-                  Bạn chưa có công việc
+                  Không có công việc
                 </h3>
 
                 <p>
-                  Hiện tại chưa có task
-                  nào được giao cho bạn.
+                  Không tìm thấy công việc
+                  phù hợp với bộ lọc hiện tại.
                 </p>
 
               </div>
@@ -480,7 +659,7 @@ function MyTasks() {
 
               <div className="task-list">
 
-                {tasks.map(
+                {sortedTasks.map(
                   (task) => (
 
                     <TaskCard
@@ -508,14 +687,14 @@ function MyTasks() {
       </main>
 
 
-      {/* TASK DETAIL */}
+      {/* =================================================
+          TASK DETAIL
+      ================================================= */}
 
       {selectedTask && (
 
         <TaskDetail
-
           task={selectedTask}
-
           users={users}
 
           onClose={

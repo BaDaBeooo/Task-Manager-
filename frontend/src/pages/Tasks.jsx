@@ -28,6 +28,7 @@ function Tasks() {
   const [error, setError] =
     useState("");
 
+
   const [showModal, setShowModal] =
     useState(false);
 
@@ -58,6 +59,7 @@ function Tasks() {
     try {
 
       setLoading(true);
+
       setError("");
 
 
@@ -110,10 +112,12 @@ function Tasks() {
         window.location.href = "/";
 
         return;
+
       }
 
 
       setError(
+        error.response?.data?.detail ||
         "Không thể tải danh sách công việc."
       );
 
@@ -171,14 +175,16 @@ function Tasks() {
 
 
   // =====================================================
-  // OPEN DETAIL
+  // OPEN TASK DETAIL
   // =====================================================
 
   const handleTaskClick = (
     task
   ) => {
 
-    setSelectedTask(task);
+    setSelectedTask(
+      task
+    );
 
   };
 
@@ -226,7 +232,9 @@ function Tasks() {
     );
 
 
-    setSelectedTask(null);
+    setSelectedTask(
+      null
+    );
 
   };
 
@@ -241,14 +249,12 @@ function Tasks() {
 
         const matchesStatus =
           statusFilter === "all" ||
-          task.status ===
-            statusFilter;
+          task.status === statusFilter;
 
 
         const matchesPriority =
           priorityFilter === "all" ||
-          task.priority ===
-            priorityFilter;
+          task.priority === priorityFilter;
 
 
         const searchText =
@@ -275,7 +281,24 @@ function Tasks() {
 
       }
     );
+    const sortedTasks = [
+       ...filteredTasks,
+        ].sort((a, b) => {
 
+    const aCompleted =
+      a.status === "completed";
+
+    const bCompleted =
+      b.status === "completed";
+
+      if (
+        aCompleted === bCompleted
+      ) {
+      return 0;
+    }
+
+    return aCompleted ? 1 : -1;
+  });
 
   // =====================================================
   // STATS
@@ -314,13 +337,28 @@ function Tasks() {
 
     return (
 
-      <div className="dashboard-loading">
+      <div className="dashboard-layout">
 
-        <div className="loading-spinner" />
+        <Sidebar />
 
-        <span>
-          Đang tải công việc...
-        </span>
+        <main className="dashboard-main">
+
+          <Topbar
+            user={user}
+            onLogout={handleLogout}
+          />
+
+          <div className="dashboard-loading-content">
+
+            <div className="loading-spinner" />
+
+            <span>
+              Đang tải công việc...
+            </span>
+
+          </div>
+
+        </main>
 
       </div>
 
@@ -359,7 +397,9 @@ function Tasks() {
         <div className="dashboard-content">
 
 
-          {/* HEADER */}
+          {/* =================================================
+              HEADER
+          ================================================= */}
 
           <div className="welcome-section">
 
@@ -401,7 +441,9 @@ function Tasks() {
           )}
 
 
-          {/* STATS */}
+          {/* =================================================
+              STATS
+          ================================================= */}
 
           <div className="stats-grid">
 
@@ -509,7 +551,9 @@ function Tasks() {
           </div>
 
 
-          {/* FILTERS */}
+          {/* =================================================
+              SEARCH + FILTER
+          ================================================= */}
 
           <div className="tasks-toolbar">
 
@@ -532,70 +576,73 @@ function Tasks() {
             </div>
 
 
-            {/* STATUS */}
+            {/* FILTERS */}
 
-            <select
-              value={statusFilter}
-              onChange={(event) =>
-                setStatusFilter(
-                  event.target.value
-                )
-              }
-            >
+            <div className="tasks-filters">
 
-              <option value="all">
-                Tất cả trạng thái
-              </option>
+              <select
+                value={statusFilter}
+                onChange={(event) =>
+                  setStatusFilter(
+                    event.target.value
+                  )
+                }
+              >
 
-              <option value="todo">
-                Chưa làm
-              </option>
+                <option value="all">
+                  Tất cả trạng thái
+                </option>
 
-              <option value="in_progress">
-                Đang làm
-              </option>
+                <option value="todo">
+                  Chưa làm
+                </option>
 
-              <option value="completed">
-                Hoàn thành
-              </option>
+                <option value="in_progress">
+                  Đang làm
+                </option>
 
-            </select>
+                <option value="completed">
+                  Hoàn thành
+                </option>
+
+              </select>
 
 
-            {/* PRIORITY */}
+              <select
+                value={priorityFilter}
+                onChange={(event) =>
+                  setPriorityFilter(
+                    event.target.value
+                  )
+                }
+              >
 
-            <select
-              value={priorityFilter}
-              onChange={(event) =>
-                setPriorityFilter(
-                  event.target.value
-                )
-              }
-            >
+                <option value="all">
+                  Tất cả ưu tiên
+                </option>
 
-              <option value="all">
-                Tất cả ưu tiên
-              </option>
+                <option value="high">
+                  Cao
+                </option>
 
-              <option value="high">
-                Cao
-              </option>
+                <option value="medium">
+                  Trung bình
+                </option>
 
-              <option value="medium">
-                Trung bình
-              </option>
+                <option value="low">
+                  Thấp
+                </option>
 
-              <option value="low">
-                Thấp
-              </option>
+              </select>
 
-            </select>
-
+            </div>
 
           </div>
 
 
-          {/* TASK LIST */}
+          {/* =================================================
+              TASK LIST
+          ================================================= */}
 
           <section className="tasks-section">
 
@@ -641,7 +688,7 @@ function Tasks() {
 
               <div className="task-list">
 
-                {filteredTasks.map(
+                {sortedTasks.map(
                   (task) => (
 
                     <TaskCard
@@ -669,12 +716,11 @@ function Tasks() {
       </main>
 
 
-      {/* CREATE TASK MODAL */}
+      {/* CREATE TASK */}
 
       {showModal && (
 
         <TaskModal
-
           users={users}
 
           onClose={() =>
@@ -695,9 +741,7 @@ function Tasks() {
       {selectedTask && (
 
         <TaskDetail
-
           task={selectedTask}
-
           users={users}
 
           onClose={() =>

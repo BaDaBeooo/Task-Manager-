@@ -1387,7 +1387,7 @@ function TaskDetail({
                 disabled={saving}
                 type="button"
               >
-                Hủy
+                <span>🚫 Hủy</span>
               </button>
 
 
@@ -1417,7 +1417,7 @@ function TaskDetail({
                 }
                 type="button"
               >
-                ✏️ Chỉnh sửa
+                <span>✏️ Chỉnh sửa</span>
               </button>
 
 
@@ -1428,7 +1428,7 @@ function TaskDetail({
                 }
                 type="button"
               >
-                🗑️ Xóa
+                <span>🗑️ Xóa</span>
               </button>
 
 
@@ -1437,7 +1437,7 @@ function TaskDetail({
                 onClick={onClose}
                 type="button"
               >
-                Đóng
+                <span>Đóng</span>
               </button>
 
             </>
