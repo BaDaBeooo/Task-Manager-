@@ -1,29 +1,96 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+
+import api from "../services/api";
+
 
 function TaskModal({ onClose, onCreated }) {
   const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [priority, setPriority] = useState("medium");
-  const [deadline, setDeadline] = useState("");
 
-  const [subtasks, setSubtasks] = useState([
-    { title: "" }
-  ]);
+  const [description, setDescription] =
+    useState("");
 
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [priority, setPriority] =
+    useState("medium");
+
+  const [deadline, setDeadline] =
+    useState("");
+
+  const [assigneeId, setAssigneeId] =
+    useState("");
+
+  const [users, setUsers] =
+    useState([]);
+
+  const [loadingUsers, setLoadingUsers] =
+    useState(true);
+
+  const [subtasks, setSubtasks] =
+    useState([
+      { title: "" }
+    ]);
+
+  const [loading, setLoading] =
+    useState(false);
+
+  const [error, setError] =
+    useState("");
 
 
+  /*
+   * LOAD USERS
+   */
+  useEffect(() => {
+    const loadUsers = async () => {
+      try {
+        setLoadingUsers(true);
+
+        const response =
+          await api.get("/users");
+
+        setUsers(response.data);
+
+      } catch (error) {
+        console.error(
+          "Load users error:",
+          error
+        );
+
+        setError(
+          "Không thể tải danh sách thành viên."
+        );
+
+      } finally {
+        setLoadingUsers(false);
+      }
+    };
+
+    loadUsers();
+  }, []);
+
+
+  /*
+   * ADD SUBTASK
+   */
   const addSubtask = () => {
     setSubtasks([
       ...subtasks,
-      { title: "" }
+      {
+        title: ""
+      }
     ]);
   };
 
 
-  const updateSubtask = (index, value) => {
-    const updated = [...subtasks];
+  /*
+   * UPDATE SUBTASK
+   */
+  const updateSubtask = (
+    index,
+    value
+  ) => {
+    const updated = [
+      ...subtasks
+    ];
 
     updated[index].title = value;
 
@@ -31,23 +98,38 @@ function TaskModal({ onClose, onCreated }) {
   };
 
 
-  const removeSubtask = (index) => {
+  /*
+   * REMOVE SUBTASK
+   */
+  const removeSubtask = (
+    index
+  ) => {
+
     if (subtasks.length === 1) {
       return;
     }
 
     setSubtasks(
       subtasks.filter(
-        (_, i) => i !== index
+        (_, i) =>
+          i !== index
       )
     );
   };
 
 
-  const handleSubmit = async (event) => {
+  /*
+   * CREATE TASK
+   */
+  const handleSubmit = async (
+    event
+  ) => {
+
     event.preventDefault();
 
+
     if (!title.trim()) {
+
       setError(
         "Vui lòng nhập tên công việc."
       );
@@ -57,31 +139,31 @@ function TaskModal({ onClose, onCreated }) {
 
 
     try {
+
       setLoading(true);
       setError("");
 
 
-      const token =
-        localStorage.getItem(
-          "access_token"
-        );
-
-
       const taskData = {
-        title: title.trim(),
+
+        title:
+          title.trim(),
 
         description:
-          description.trim() || null,
+          description.trim()
+            ? description.trim()
+            : null,
 
-        assignee_id: null,
+        assignee_id:
+          assigneeId
+            ? Number(assigneeId)
+            : null,
 
         priority,
 
         deadline:
           deadline
-            ? new Date(
-                `${deadline}T23:59:59`
-              ).toISOString()
+            ? `${deadline}T23:59:59`
             : null,
 
         subtasks:
@@ -90,69 +172,59 @@ function TaskModal({ onClose, onCreated }) {
               (item) =>
                 item.title.trim()
             )
-            .map((item) => ({
-              title:
-                item.title.trim()
-            })),
+            .map(
+              (item) => ({
+                title:
+                  item.title.trim()
+              })
+            ),
       };
 
 
       const response =
-        await fetch(
-          "http://127.0.0.1:8000/tasks",
-          {
-            method: "POST",
-
-            headers: {
-              "Content-Type":
-                "application/json",
-
-              Authorization:
-                `Bearer ${token}`,
-            },
-
-            body:
-              JSON.stringify(
-                taskData
-              ),
-          }
+        await api.post(
+          "/tasks",
+          taskData
         );
 
 
-      if (!response.ok) {
-        const data =
-          await response
-            .json()
-            .catch(() => null);
-
-        throw new Error(
-          data?.detail ||
-          "Không thể tạo công việc."
-        );
-      }
-
-
-      const createdTask =
-        await response.json();
-
-
-      onCreated(createdTask);
+      onCreated(
+        response.data
+      );
 
       onClose();
 
     } catch (error) {
+
       console.error(
         "Create task error:",
         error
       );
 
+
+      if (
+        error.response?.status === 401
+      ) {
+
+        localStorage.removeItem(
+          "access_token"
+        );
+
+        window.location.href = "/";
+
+        return;
+      }
+
+
       setError(
-        error.message ||
+        error.response?.data?.detail ||
         "Không thể tạo công việc."
       );
 
     } finally {
+
       setLoading(false);
+
     }
   };
 
@@ -160,21 +232,28 @@ function TaskModal({ onClose, onCreated }) {
   return (
     <div
       className="modal-overlay"
+
       onMouseDown={(event) => {
+
         if (
           event.target ===
           event.currentTarget
         ) {
           onClose();
         }
+
       }}
     >
 
       <div className="task-modal">
 
+
+        {/* HEADER */}
+
         <div className="modal-header">
 
           <div>
+
             <h2>
               Tạo công việc
             </h2>
@@ -183,13 +262,14 @@ function TaskModal({ onClose, onCreated }) {
               Tạo một công việc mới
               cho nhóm
             </p>
+
           </div>
 
 
           <button
             className="modal-close"
-            onClick={onClose}
             type="button"
+            onClick={onClose}
           >
             ×
           </button>
@@ -197,17 +277,26 @@ function TaskModal({ onClose, onCreated }) {
         </div>
 
 
+        {/* ERROR */}
+
         {error && (
+
           <div className="modal-error">
             {error}
           </div>
+
         )}
 
 
+        {/* FORM */}
+
         <form
-          onSubmit={handleSubmit}
           className="task-form"
+          onSubmit={handleSubmit}
         >
+
+
+          {/* TITLE */}
 
           <div className="form-group">
 
@@ -231,6 +320,8 @@ function TaskModal({ onClose, onCreated }) {
           </div>
 
 
+          {/* DESCRIPTION */}
+
           <div className="form-group">
 
             <label>
@@ -238,6 +329,7 @@ function TaskModal({ onClose, onCreated }) {
             </label>
 
             <textarea
+              rows={4}
               value={description}
               onChange={(event) =>
                 setDescription(
@@ -245,13 +337,59 @@ function TaskModal({ onClose, onCreated }) {
                 )
               }
               placeholder="Mô tả nội dung công việc..."
-              rows={4}
             />
 
           </div>
 
 
+          {/* ASSIGNEE */}
+
+          <div className="form-group">
+
+            <label>
+              Giao cho
+            </label>
+
+            <select
+              value={assigneeId}
+              onChange={(event) =>
+                setAssigneeId(
+                  event.target.value
+                )
+              }
+              disabled={loadingUsers}
+            >
+
+              <option value="">
+                {loadingUsers
+                  ? "Đang tải thành viên..."
+                  : "Không giao cho ai"}
+              </option>
+
+
+              {users.map(
+                (user) => (
+
+                  <option
+                    key={user.id}
+                    value={user.id}
+                  >
+                    {user.full_name ||
+                      user.username}
+                  </option>
+
+                )
+              )}
+
+            </select>
+
+          </div>
+
+
+          {/* PRIORITY + DEADLINE */}
+
           <div className="form-row">
+
 
             <div className="form-group">
 
@@ -306,11 +444,15 @@ function TaskModal({ onClose, onCreated }) {
           </div>
 
 
+          {/* SUBTASKS */}
+
           <div className="subtasks-section">
+
 
             <div className="subtasks-header">
 
               <div>
+
                 <label>
                   Việc cần làm
                 </label>
@@ -319,6 +461,7 @@ function TaskModal({ onClose, onCreated }) {
                   Chia công việc thành
                   các bước nhỏ
                 </p>
+
               </div>
 
 
@@ -336,7 +479,10 @@ function TaskModal({ onClose, onCreated }) {
             <div className="subtasks-list">
 
               {subtasks.map(
-                (subtask, index) => (
+                (
+                  subtask,
+                  index
+                ) => (
 
                   <div
                     className="subtask-row"
@@ -387,7 +533,10 @@ function TaskModal({ onClose, onCreated }) {
           </div>
 
 
+          {/* FOOTER */}
+
           <div className="modal-footer">
+
 
             <button
               type="button"
@@ -402,7 +551,10 @@ function TaskModal({ onClose, onCreated }) {
             <button
               type="submit"
               className="submit-task-button"
-              disabled={loading}
+              disabled={
+                loading ||
+                loadingUsers
+              }
             >
 
               {loading
@@ -413,6 +565,7 @@ function TaskModal({ onClose, onCreated }) {
 
           </div>
 
+
         </form>
 
       </div>
@@ -420,5 +573,6 @@ function TaskModal({ onClose, onCreated }) {
     </div>
   );
 }
+
 
 export default TaskModal;

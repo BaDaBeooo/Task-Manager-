@@ -36,18 +36,35 @@ function formatDeadline(deadline) {
 }
 
 
-function TaskCard({ task }) {
+function TaskCard({
+  task,
+  onClick,
+}) {
+
   const completedSubtasks =
     task.subtasks?.filter(
       (subtask) => subtask.completed
     ).length || 0;
+
 
   const totalSubtasks =
     task.subtasks?.length || 0;
 
 
   return (
-    <div className="task-card">
+    <div
+      className="task-card"
+      onClick={() => {
+        if (onClick) {
+          onClick(task);
+        }
+      }}
+      style={{
+        cursor: onClick
+          ? "pointer"
+          : "default",
+      }}
+    >
 
       <div className="task-card-main">
 
@@ -67,9 +84,11 @@ function TaskCard({ task }) {
 
 
         {task.description && (
+
           <p className="task-description">
             {task.description}
           </p>
+
         )}
 
 
@@ -84,9 +103,11 @@ function TaskCard({ task }) {
           </span>
 
           {totalSubtasks > 0 && (
+
             <span>
               ☑ {completedSubtasks}/{totalSubtasks}
             </span>
+
           )}
 
         </div>

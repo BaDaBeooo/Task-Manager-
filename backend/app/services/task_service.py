@@ -48,14 +48,24 @@ def get_task(
 
 def get_tasks(
     db: Session,
+    current_user=None,
+    mine: bool = False,
 ) -> list[Task]:
 
-    statement = (
-        select(Task)
-        .order_by(Task.created_at.desc())
+    statement = select(Task)
+
+    if mine:
+        statement = statement.where(
+            Task.assignee_id == current_user.id
+        )
+
+    statement = statement.order_by(
+        Task.created_at.desc()
     )
 
-    return list(db.scalars(statement).all())
+    return list(
+        db.scalars(statement).all()
+    )
 
 
 def update_task(
@@ -86,3 +96,68 @@ def delete_task(
 
     db.delete(task)
     db.commit()
+
+
+def update_subtask(
+    db: Session,
+    subtask: Subtask,
+    completed: bool,
+) -> Subtask:
+
+    subtask.completed = completed
+
+    if completed:
+        subtask.completed_at = datetime.utcnow()
+    else:
+        subtask.completed_at = None
+
+    db.commit()
+    db.refresh(subtask)
+
+    return subtask
+
+
+def recalculate_task_progress(
+    db: Session,
+    task: Task,
+) -> Task:
+
+    total_subtasks = len(task.subtasks)
+
+    completed_subtasks = sum(
+        1
+        for subtask in task.subtasks
+        if subtask.completed
+    )
+
+    if total_subtasks == 0:
+        task.progress = 0
+
+    else:
+        task.progress = round(
+            (
+                completed_subtasks
+                / total_subtasks
+            )
+            * 100
+        )
+
+
+    if total_subtasks > 0:
+
+        if completed_subtasks == total_subtasks:
+            task.status = "completed"
+
+        elif completed_subtasks > 0:
+            task.status = "in_progress"
+
+        else:
+            task.status = "todo"
+
+
+    task.updated_at = datetime.utcnow()
+
+    db.commit()
+    db.refresh(task)
+
+    return task

@@ -7,13 +7,21 @@ import {
 
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
+import MyTasks from "./pages/MyTasks";
+import Tasks from "./pages/Tasks";
 
 
 function ProtectedRoute({ children }) {
-  const token = localStorage.getItem("access_token");
+  const token =
+    localStorage.getItem("access_token");
 
   if (!token) {
-    return <Navigate to="/" replace />;
+    return (
+      <Navigate
+        to="/"
+        replace
+      />
+    );
   }
 
   return children;
@@ -21,7 +29,8 @@ function ProtectedRoute({ children }) {
 
 
 function PublicRoute({ children }) {
-  const token = localStorage.getItem("access_token");
+  const token =
+    localStorage.getItem("access_token");
 
   if (token) {
     return (
@@ -42,6 +51,8 @@ function App() {
 
       <Routes>
 
+        {/* LOGIN */}
+
         <Route
           path="/"
           element={
@@ -50,6 +61,9 @@ function App() {
             </PublicRoute>
           }
         />
+
+
+        {/* DASHBOARD */}
 
         <Route
           path="/dashboard"
@@ -60,11 +74,38 @@ function App() {
           }
         />
 
+
+        {/* MY TASKS */}
+
+        <Route
+          path="/my-tasks"
+          element={
+            <ProtectedRoute>
+              <MyTasks />
+            </ProtectedRoute>
+          }
+        />
+
+
+        {/* ALL TASKS */}
+
+        <Route
+          path="/tasks"
+          element={
+            <ProtectedRoute>
+              <Tasks />
+            </ProtectedRoute>
+          }
+        />
+
+
+        {/* UNKNOWN ROUTE */}
+
         <Route
           path="*"
           element={
             <Navigate
-              to="/"
+              to="/dashboard"
               replace
             />
           }

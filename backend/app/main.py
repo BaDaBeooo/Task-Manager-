@@ -5,6 +5,7 @@ from .database.connection import Base, engine
 from .models import Subtask, Task, User
 from .routers.auth import router as auth_router
 from .routers.tasks import router as tasks_router
+from .routers.users import router as users_router
 
 Base.metadata.create_all(bind=engine)
 
@@ -25,6 +26,7 @@ app.add_middleware(
 
 app.include_router(auth_router)
 app.include_router(tasks_router)
+app.include_router(users_router)
 
 @app.get("/")
 def root():
