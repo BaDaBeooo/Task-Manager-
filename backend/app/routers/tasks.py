@@ -3,6 +3,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from ..database.connection import get_db
+from ..models import Subtask, Task, TaskSupporter, User
 from ..routers.auth import get_current_user
 from ..schemas.task import (
     TaskCreate,
@@ -30,6 +31,10 @@ class SubtaskUpdateRequest(BaseModel):
     completed: bool
 
 
+# =========================================================
+# CREATE TASK
+# =========================================================
+
 @router.post(
     "",
     response_model=TaskResponse,
@@ -47,6 +52,10 @@ def create_new_task(
     )
 
 
+# =========================================================
+# LIST TASKS
+# =========================================================
+
 @router.get(
     "",
     response_model=list[TaskResponse],
@@ -62,6 +71,10 @@ def list_tasks(
         mine=mine,
     )
 
+
+# =========================================================
+# GET TASK DETAIL
+# =========================================================
 
 @router.get(
     "/{task_id}",
@@ -86,6 +99,161 @@ def get_single_task(
     return task
 
 
+# =========================================================
+# ADD SUPPORTER
+# =========================================================
+
+@router.post(
+    "/{task_id}/supporters/{user_id}",
+    status_code=status.HTTP_201_CREATED,
+)
+def add_task_supporter(
+    task_id: int,
+    user_id: int,
+    current_user=Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    task = get_task(
+        db,
+        task_id,
+    )
+
+    if not task:
+        raise HTTPException(
+            status_code=404,
+            detail="Task not found",
+        )
+
+
+    # Chỉ creator hoặc admin được quản lý supporter
+    if (
+        current_user.id != task.creator_id
+        and current_user.role != "admin"
+    ):
+        raise HTTPException(
+            status_code=403,
+            detail="Not allowed to manage task supporters",
+        )
+
+
+    user = db.get(
+        User,
+        user_id,
+    )
+
+    if not user or not user.is_active:
+        raise HTTPException(
+            status_code=404,
+            detail="User not found",
+        )
+
+
+    # Assignee chính không đồng thời là supporter
+    if task.assignee_id == user_id:
+        raise HTTPException(
+            status_code=400,
+            detail="Assignee cannot also be a supporter",
+        )
+
+
+    # Kiểm tra supporter đã tồn tại
+    existing = (
+        db.query(TaskSupporter)
+        .filter(
+            TaskSupporter.task_id == task_id,
+            TaskSupporter.user_id == user_id,
+        )
+        .first()
+    )
+
+
+    if existing:
+        raise HTTPException(
+            status_code=400,
+            detail="User is already a supporter",
+        )
+
+
+    supporter = TaskSupporter(
+        task_id=task_id,
+        user_id=user_id,
+    )
+
+
+    db.add(supporter)
+    db.commit()
+    db.refresh(supporter)
+
+
+    return supporter
+
+
+# =========================================================
+# REMOVE SUPPORTER
+# =========================================================
+
+@router.delete(
+    "/{task_id}/supporters/{user_id}",
+)
+def remove_task_supporter(
+    task_id: int,
+    user_id: int,
+    current_user=Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    task = get_task(
+        db,
+        task_id,
+    )
+
+    if not task:
+        raise HTTPException(
+            status_code=404,
+            detail="Task not found",
+        )
+
+
+    # Chỉ creator hoặc admin được quản lý supporter
+    if (
+        current_user.id != task.creator_id
+        and current_user.role != "admin"
+    ):
+        raise HTTPException(
+            status_code=403,
+            detail="Not allowed to manage task supporters",
+        )
+
+
+    supporter = (
+        db.query(TaskSupporter)
+        .filter(
+            TaskSupporter.task_id == task_id,
+            TaskSupporter.user_id == user_id,
+        )
+        .first()
+    )
+
+
+    if not supporter:
+        raise HTTPException(
+            status_code=404,
+            detail="Supporter not found",
+        )
+
+
+    db.delete(supporter)
+    db.commit()
+
+
+    return {
+        "message": "Supporter removed successfully"
+    }
+
+
+# =========================================================
+# UPDATE TASK
+# =========================================================
+
 @router.put(
     "/{task_id}",
     response_model=TaskResponse,
@@ -107,12 +275,17 @@ def update_existing_task(
             detail="Task not found",
         )
 
+
     return update_task(
         db,
         task,
         task_data,
     )
 
+
+# =========================================================
+# UPDATE SUBTASK
+# =========================================================
 
 @router.patch(
     "/{task_id}/subtasks/{subtask_id}",
@@ -137,11 +310,24 @@ def update_task_subtask(
         )
 
 
-    # Chỉ người được giao hoặc người tạo task
-    # mới được cập nhật subtask.
+    # Creator, assignee chính hoặc supporter
+    # đều được cập nhật subtask.
+
+    is_supporter = (
+        db.query(TaskSupporter)
+        .filter(
+            TaskSupporter.task_id == task_id,
+            TaskSupporter.user_id == current_user.id,
+        )
+        .first()
+        is not None
+    )
+
+
     if (
         current_user.id != task.creator_id
         and current_user.id != task.assignee_id
+        and not is_supporter
     ):
         raise HTTPException(
             status_code=403,
@@ -179,6 +365,10 @@ def update_task_subtask(
     )
 
 
+# =========================================================
+# DELETE TASK
+# =========================================================
+
 @router.delete(
     "/{task_id}",
 )
@@ -213,6 +403,7 @@ def delete_existing_task(
         db,
         task,
     )
+
 
     return {
         "message": "Task deleted successfully"

@@ -5,7 +5,7 @@ class UserCreate(BaseModel):
     username: str
     full_name: str
     password: str
-    role: str = "member"
+    role: str = "Sale"
 
 
 class LoginRequest(BaseModel):
@@ -19,10 +19,15 @@ class TokenResponse(BaseModel):
 
 
 class UserResponse(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(
+        from_attributes=True
+    )
 
     id: int
     username: str
     full_name: str
     role: str
     is_active: bool
+
+class UserRoleUpdate(BaseModel):
+    role_id: int

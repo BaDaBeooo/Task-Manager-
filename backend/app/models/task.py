@@ -1,9 +1,45 @@
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from ..database.connection import Base
+
+
+class TaskSupporter(Base):
+    __tablename__ = "task_supporters"
+
+    id: Mapped[int] = mapped_column(
+        primary_key=True,
+        index=True,
+    )
+
+    task_id: Mapped[int] = mapped_column(
+        ForeignKey("tasks.id"),
+        nullable=False,
+    )
+
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id"),
+        nullable=False,
+    )
+
+    __table_args__ = (
+        UniqueConstraint(
+            "task_id",
+            "user_id",
+            name="uq_task_supporter",
+        ),
+    )
+
+    task = relationship(
+        "Task",
+        back_populates="supporter_links",
+    )
+
+    user = relationship(
+        "User",
+    )
 
 
 class Task(Base):
@@ -82,6 +118,12 @@ class Task(Base):
 
     subtasks = relationship(
         "Subtask",
+        back_populates="task",
+        cascade="all, delete-orphan",
+    )
+
+    supporter_links = relationship(
+        "TaskSupporter",
         back_populates="task",
         cascade="all, delete-orphan",
     )

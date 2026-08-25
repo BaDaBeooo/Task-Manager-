@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 
 import api from "../services/api";
 
@@ -12,58 +12,97 @@ import "../Dashboard.css";
 
 
 function Tasks() {
-  const [user, setUser] = useState(null);
 
-  const [tasks, setTasks] = useState([]);
+  const [user, setUser] =
+    useState(null);
 
-  const [loading, setLoading] = useState(true);
+  const [users, setUsers] =
+    useState([]);
 
-  const [error, setError] = useState("");
+  const [tasks, setTasks] =
+    useState([]);
 
-  const [search, setSearch] = useState("");
+  const [loading, setLoading] =
+    useState(true);
 
-  const [statusFilter, setStatusFilter] =
-    useState("all");
-  
-  const [sortBy, setSortBy] =
-  useState("updated_desc");  
+  const [error, setError] =
+    useState("");
 
-  const [showTaskModal, setShowTaskModal] =
+  const [showModal, setShowModal] =
     useState(false);
 
   const [selectedTask, setSelectedTask] =
     useState(null);
 
 
-  /*
-   * LOAD DATA
-   */
+  // =====================================================
+  // FILTER
+  // =====================================================
+
+  const [statusFilter, setStatusFilter] =
+    useState("all");
+
+  const [priorityFilter, setPriorityFilter] =
+    useState("all");
+
+  const [search, setSearch] =
+    useState("");
+
+
+  // =====================================================
+  // LOAD DATA
+  // =====================================================
+
   const loadTasks = async () => {
+
     try {
+
       setLoading(true);
       setError("");
+
 
       const [
         userResponse,
         tasksResponse,
+        usersResponse,
       ] = await Promise.all([
+
         api.get("/auth/me"),
+
         api.get("/tasks"),
+
+        api.get("/users"),
+
       ]);
 
-      setUser(userResponse.data);
 
-      setTasks(tasksResponse.data);
+      setUser(
+        userResponse.data
+      );
+
+
+      setTasks(
+        tasksResponse.data
+      );
+
+
+      setUsers(
+        usersResponse.data
+      );
+
 
     } catch (error) {
+
       console.error(
         "Tasks page error:",
         error
       );
 
+
       if (
         error.response?.status === 401
       ) {
+
         localStorage.removeItem(
           "access_token"
         );
@@ -73,191 +112,178 @@ function Tasks() {
         return;
       }
 
+
       setError(
         "Không thể tải danh sách công việc."
       );
 
+
     } finally {
+
       setLoading(false);
+
     }
+
   };
 
 
   useEffect(() => {
+
     loadTasks();
+
   }, []);
 
 
-  /*
-   * LOGOUT
-   */
+  // =====================================================
+  // LOGOUT
+  // =====================================================
+
   const handleLogout = () => {
+
     localStorage.removeItem(
       "access_token"
     );
 
     window.location.href = "/";
+
   };
 
 
-  /*
-   * CREATE TASK
-   */
-  const handleTaskCreated = () => {
-    setShowTaskModal(false);
-    loadTasks();
+  // =====================================================
+  // CREATE TASK
+  // =====================================================
+
+  const handleTaskCreated = (
+    createdTask
+  ) => {
+
+    setTasks(
+      (currentTasks) => [
+        createdTask,
+        ...currentTasks,
+      ]
+    );
+
+
+    setShowModal(false);
+
   };
 
 
-  /*
-   * TASK CLICK
-   */
-  const handleTaskClick = (task) => {
+  // =====================================================
+  // OPEN DETAIL
+  // =====================================================
+
+  const handleTaskClick = (
+    task
+  ) => {
+
     setSelectedTask(task);
+
   };
 
 
-  /*
-   * TASK UPDATED
-   */
+  // =====================================================
+  // UPDATE TASK
+  // =====================================================
+
   const handleTaskUpdated = (
     updatedTask
   ) => {
 
-    setTasks((currentTasks) =>
-      currentTasks.map((task) =>
-        task.id === updatedTask.id
-          ? updatedTask
-          : task
-      )
+    setTasks(
+      (currentTasks) =>
+        currentTasks.map(
+          (task) =>
+            task.id === updatedTask.id
+              ? updatedTask
+              : task
+        )
     );
 
-    setSelectedTask(updatedTask);
+
+    setSelectedTask(
+      updatedTask
+    );
+
   };
 
 
-  /*
-   * FILTER TASKS
-   */
-const filteredTasks = useMemo(() => {
-  const result = tasks.filter((task) => {
-    const matchesStatus =
-      statusFilter === "all" ||
-      task.status === statusFilter;
+  // =====================================================
+  // DELETE TASK
+  // =====================================================
 
-    const searchText =
-      search.trim().toLowerCase();
+  const handleTaskDeleted = (
+    taskId
+  ) => {
 
-    const matchesSearch =
-      !searchText ||
-      task.title
-        ?.toLowerCase()
-        .includes(searchText) ||
-      task.description
-        ?.toLowerCase()
-        .includes(searchText);
-
-    return matchesStatus && matchesSearch;
-  });
+    setTasks(
+      (currentTasks) =>
+        currentTasks.filter(
+          (task) =>
+            task.id !== taskId
+        )
+    );
 
 
-  const priorityOrder = {
-    low: 1,
-    medium: 2,
-    high: 3,
+    setSelectedTask(null);
+
   };
 
 
-  return [...result].sort((a, b) => {
-    switch (sortBy) {
+  // =====================================================
+  // FILTER TASKS
+  // =====================================================
 
-      case "updated_desc":
-        return (
-          new Date(b.updated_at || 0) -
-          new Date(a.updated_at || 0)
-        );
+  const filteredTasks =
+    tasks.filter(
+      (task) => {
 
-
-      case "created_desc":
-        return (
-          new Date(b.created_at || 0) -
-          new Date(a.created_at || 0)
-        );
+        const matchesStatus =
+          statusFilter === "all" ||
+          task.status ===
+            statusFilter;
 
 
-      case "created_asc":
-        return (
-          new Date(a.created_at || 0) -
-          new Date(b.created_at || 0)
-        );
+        const matchesPriority =
+          priorityFilter === "all" ||
+          task.priority ===
+            priorityFilter;
 
 
-      case "deadline_asc":
-        if (!a.deadline) return 1;
-        if (!b.deadline) return -1;
-
-        return (
-          new Date(a.deadline) -
-          new Date(b.deadline)
-        );
+        const searchText =
+          search
+            .trim()
+            .toLowerCase();
 
 
-      case "deadline_desc":
-        if (!a.deadline) return 1;
-        if (!b.deadline) return -1;
+        const matchesSearch =
+          !searchText ||
+          task.title
+            ?.toLowerCase()
+            .includes(searchText) ||
+          task.description
+            ?.toLowerCase()
+            .includes(searchText);
+
 
         return (
-          new Date(b.deadline) -
-          new Date(a.deadline)
+          matchesStatus &&
+          matchesPriority &&
+          matchesSearch
         );
 
-
-      case "priority_desc":
-        return (
-          (priorityOrder[b.priority] || 0) -
-          (priorityOrder[a.priority] || 0)
-        );
+      }
+    );
 
 
-      case "priority_asc":
-        return (
-          (priorityOrder[a.priority] || 0) -
-          (priorityOrder[b.priority] || 0)
-        );
+  // =====================================================
+  // STATS
+  // =====================================================
 
-
-      case "progress_asc":
-        return (
-          (a.progress || 0) -
-          (b.progress || 0)
-        );
-
-
-      case "progress_desc":
-        return (
-          (b.progress || 0) -
-          (a.progress || 0)
-        );
-
-
-      default:
-        return 0;
-    }
-  });
-
-}, [
-  tasks,
-  statusFilter,
-  search,
-  sortBy,
-]);
-
-
-  /*
-   * STATISTICS
-   */
   const totalTasks =
     tasks.length;
+
 
   const todoTasks =
     tasks.filter(
@@ -265,11 +291,13 @@ const filteredTasks = useMemo(() => {
         task.status === "todo"
     ).length;
 
+
   const inProgressTasks =
     tasks.filter(
       (task) =>
         task.status === "in_progress"
     ).length;
+
 
   const completedTasks =
     tasks.filter(
@@ -278,11 +306,14 @@ const filteredTasks = useMemo(() => {
     ).length;
 
 
-  /*
-   * LOADING
-   */
+  // =====================================================
+  // LOADING
+  // =====================================================
+
   if (loading) {
+
     return (
+
       <div className="dashboard-loading">
 
         <div className="loading-spinner" />
@@ -292,11 +323,18 @@ const filteredTasks = useMemo(() => {
         </span>
 
       </div>
+
     );
+
   }
 
 
+  // =====================================================
+  // RENDER
+  // =====================================================
+
   return (
+
     <div className="dashboard-layout">
 
 
@@ -309,6 +347,8 @@ const filteredTasks = useMemo(() => {
 
       <main className="dashboard-main">
 
+
+        {/* TOPBAR */}
 
         <Topbar
           user={user}
@@ -330,17 +370,18 @@ const filteredTasks = useMemo(() => {
               </h1>
 
               <p>
-                Quản lý tất cả công việc
-                của nhóm.
+                Quản lý và theo dõi
+                toàn bộ công việc.
               </p>
 
             </div>
 
 
             <button
-              className="create-task-button"
+              className="primary-button"
+              type="button"
               onClick={() =>
-                setShowTaskModal(true)
+                setShowModal(true)
               }
             >
               + Tạo công việc
@@ -352,32 +393,35 @@ const filteredTasks = useMemo(() => {
           {/* ERROR */}
 
           {error && (
+
             <div className="dashboard-error">
               {error}
             </div>
+
           )}
 
 
-          {/* STATISTICS */}
+          {/* STATS */}
 
           <div className="stats-grid">
+
 
             <div className="stat-card">
 
               <div className="stat-card-top">
 
-                <div className="stat-card-title">
-                  Tổng công việc
-                </div>
-
                 <div className="stat-card-icon">
                   📋
                 </div>
 
+                <div className="stat-card-value">
+                  {totalTasks}
+                </div>
+
               </div>
 
-              <div className="stat-card-value">
-                {totalTasks}
+              <div className="stat-card-title">
+                Tổng công việc
               </div>
 
               <div className="stat-card-description">
@@ -391,22 +435,22 @@ const filteredTasks = useMemo(() => {
 
               <div className="stat-card-top">
 
-                <div className="stat-card-title">
-                  Chưa làm
-                </div>
-
                 <div className="stat-card-icon">
                   📝
                 </div>
 
+                <div className="stat-card-value">
+                  {todoTasks}
+                </div>
+
               </div>
 
-              <div className="stat-card-value">
-                {todoTasks}
+              <div className="stat-card-title">
+                Chưa làm
               </div>
 
               <div className="stat-card-description">
-                Đang chờ xử lý
+                Đang chờ thực hiện
               </div>
 
             </div>
@@ -416,18 +460,18 @@ const filteredTasks = useMemo(() => {
 
               <div className="stat-card-top">
 
-                <div className="stat-card-title">
-                  Đang làm
+                <div className="stat-card-icon">
+                  🔄
                 </div>
 
-                <div className="stat-card-icon">
-                  ⚡
+                <div className="stat-card-value">
+                  {inProgressTasks}
                 </div>
 
               </div>
 
-              <div className="stat-card-value">
-                {inProgressTasks}
+              <div className="stat-card-title">
+                Đang làm
               </div>
 
               <div className="stat-card-description">
@@ -441,32 +485,120 @@ const filteredTasks = useMemo(() => {
 
               <div className="stat-card-top">
 
-                <div className="stat-card-title">
-                  Hoàn thành
-                </div>
-
                 <div className="stat-card-icon">
                   ✅
                 </div>
 
+                <div className="stat-card-value">
+                  {completedTasks}
+                </div>
+
               </div>
 
-              <div className="stat-card-value">
-                {completedTasks}
+              <div className="stat-card-title">
+                Hoàn thành
               </div>
 
               <div className="stat-card-description">
-                Đã hoàn thành
+                Đã hoàn tất
               </div>
 
             </div>
 
+
           </div>
 
 
-          {/* FILTER */}
+          {/* FILTERS */}
+
+          <div className="tasks-toolbar">
+
+
+            {/* SEARCH */}
+
+            <div className="tasks-search">
+
+              <input
+                type="text"
+                placeholder="Tìm kiếm công việc..."
+                value={search}
+                onChange={(event) =>
+                  setSearch(
+                    event.target.value
+                  )
+                }
+              />
+
+            </div>
+
+
+            {/* STATUS */}
+
+            <select
+              value={statusFilter}
+              onChange={(event) =>
+                setStatusFilter(
+                  event.target.value
+                )
+              }
+            >
+
+              <option value="all">
+                Tất cả trạng thái
+              </option>
+
+              <option value="todo">
+                Chưa làm
+              </option>
+
+              <option value="in_progress">
+                Đang làm
+              </option>
+
+              <option value="completed">
+                Hoàn thành
+              </option>
+
+            </select>
+
+
+            {/* PRIORITY */}
+
+            <select
+              value={priorityFilter}
+              onChange={(event) =>
+                setPriorityFilter(
+                  event.target.value
+                )
+              }
+            >
+
+              <option value="all">
+                Tất cả ưu tiên
+              </option>
+
+              <option value="high">
+                Cao
+              </option>
+
+              <option value="medium">
+                Trung bình
+              </option>
+
+              <option value="low">
+                Thấp
+              </option>
+
+            </select>
+
+
+          </div>
+
+
+          {/* TASK LIST */}
 
           <section className="tasks-section">
+
 
             <div className="section-header">
 
@@ -477,162 +609,14 @@ const filteredTasks = useMemo(() => {
                 </h2>
 
                 <p>
-                  Tìm kiếm và lọc công việc
+                  {filteredTasks.length}{" "}
+                  công việc
                 </p>
 
               </div>
 
             </div>
 
-
-            <div className="tasks-toolbar">
-
-
-              {/* SEARCH */}
-
-              <div className="task-search">
-
-                <span>
-                  🔎
-                </span>
-
-                <input
-                  type="text"
-                  value={search}
-                  onChange={(event) =>
-                    setSearch(
-                      event.target.value
-                    )
-                  }
-                  placeholder="Tìm kiếm công việc..."
-                />
-
-              </div>
-
-
-              {/* FILTER */}
-
-              <div className="task-filters">
-
-                <button
-                  type="button"
-                  className={
-                    statusFilter === "all"
-                      ? "filter-button active"
-                      : "filter-button"
-                  }
-                  onClick={() =>
-                    setStatusFilter("all")
-                  }
-                >
-                  Tất cả
-                </button>
-
-
-                <button
-                  type="button"
-                  className={
-                    statusFilter === "todo"
-                      ? "filter-button active"
-                      : "filter-button"
-                  }
-                  onClick={() =>
-                    setStatusFilter("todo")
-                  }
-                >
-                  Chưa làm
-                </button>
-
-
-                <button
-                  type="button"
-                  className={
-                    statusFilter === "in_progress"
-                      ? "filter-button active"
-                      : "filter-button"
-                  }
-                  onClick={() =>
-                    setStatusFilter(
-                      "in_progress"
-                    )
-                  }
-                >
-                  Đang làm
-                </button>
-
-
-                <button
-                  type="button"
-                  className={
-                    statusFilter === "completed"
-                      ? "filter-button active"
-                      : "filter-button"
-                  }
-                  onClick={() =>
-                    setStatusFilter(
-                      "completed"
-                    )
-                  }
-                >
-                  Hoàn thành
-                </button>
-
-              </div>
-
-            </div>
-            <div className="task-sort">
-
-  <label htmlFor="task-sort">
-    Sắp xếp
-  </label>
-
-  <select
-    id="task-sort"
-    value={sortBy}
-    onChange={(event) =>
-      setSortBy(event.target.value)
-    }
-  >
-    <option value="updated_desc">
-      Mới cập nhật
-    </option>
-
-    <option value="created_desc">
-      Mới tạo
-    </option>
-
-    <option value="created_asc">
-      Cũ nhất
-    </option>
-
-    <option value="deadline_asc">
-      Deadline gần nhất
-    </option>
-
-    <option value="deadline_desc">
-      Deadline xa nhất
-    </option>
-
-    <option value="priority_desc">
-      Ưu tiên cao → thấp
-    </option>
-
-    <option value="priority_asc">
-      Ưu tiên thấp → cao
-    </option>
-
-    <option value="progress_asc">
-      Tiến độ thấp → cao
-    </option>
-
-    <option value="progress_desc">
-      Tiến độ cao → thấp
-    </option>
-  </select>
-
-</div>      
-
-            {/* TASK LIST */}
 
             {filteredTasks.length === 0 ? (
 
@@ -643,12 +627,12 @@ const filteredTasks = useMemo(() => {
                 </div>
 
                 <h3>
-                  Không tìm thấy công việc
+                  Không có công việc
                 </h3>
 
                 <p>
-                  Thử thay đổi từ khóa
-                  hoặc bộ lọc.
+                  Không tìm thấy công việc
+                  phù hợp.
                 </p>
 
               </div>
@@ -663,6 +647,7 @@ const filteredTasks = useMemo(() => {
                     <TaskCard
                       key={task.id}
                       task={task}
+                      users={users}
                       onClick={
                         handleTaskClick
                       }
@@ -680,20 +665,26 @@ const filteredTasks = useMemo(() => {
 
         </div>
 
+
       </main>
 
 
-      {/* CREATE TASK */}
+      {/* CREATE TASK MODAL */}
 
-      {showTaskModal && (
+      {showModal && (
 
         <TaskModal
+
+          users={users}
+
           onClose={() =>
-            setShowTaskModal(false)
+            setShowModal(false)
           }
+
           onCreated={
             handleTaskCreated
           }
+
         />
 
       )}
@@ -704,19 +695,32 @@ const filteredTasks = useMemo(() => {
       {selectedTask && (
 
         <TaskDetail
+
           task={selectedTask}
+
+          users={users}
+
           onClose={() =>
             setSelectedTask(null)
           }
+
           onUpdated={
             handleTaskUpdated
           }
+
+          onDeleted={
+            handleTaskDeleted
+          }
+
         />
 
       )}
 
+
     </div>
+
   );
+
 }
 
 

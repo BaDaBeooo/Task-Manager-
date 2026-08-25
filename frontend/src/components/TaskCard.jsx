@@ -1,3 +1,6 @@
+import UserAvatar from "./UserAvatar";
+
+
 function getStatusLabel(status) {
   const labels = {
     todo: "Chưa làm",
@@ -38,12 +41,14 @@ function formatDeadline(deadline) {
 
 function TaskCard({
   task,
+  users = [],
   onClick,
 }) {
 
   const completedSubtasks =
     task.subtasks?.filter(
-      (subtask) => subtask.completed
+      (subtask) =>
+        subtask.completed
     ).length || 0;
 
 
@@ -51,13 +56,46 @@ function TaskCard({
     task.subtasks?.length || 0;
 
 
+  // =====================================================
+  // ASSIGNEE
+  // =====================================================
+
+  const assignee =
+    users.find(
+      (user) =>
+        user.id === task.assignee_id
+    );
+
+
+  // =====================================================
+  // SUPPORTERS
+  // =====================================================
+
+  const supporters =
+    task.supporters || [];
+
+
+  const visibleSupporters =
+    supporters.slice(0, 3);
+
+
+  const remainingSupporters =
+    Math.max(
+      supporters.length - 3,
+      0
+    );
+
+
   return (
+
     <div
       className="task-card"
       onClick={() => {
+
         if (onClick) {
           onClick(task);
         }
+
       }}
       style={{
         cursor: onClick
@@ -66,7 +104,11 @@ function TaskCard({
       }}
     >
 
+
       <div className="task-card-main">
+
+
+        {/* TITLE */}
 
         <div className="task-card-title-row">
 
@@ -74,46 +116,153 @@ function TaskCard({
             {task.title}
           </h3>
 
+
           <span
             className={`status-badge status-${task.status}`}
           >
-            {getStatusLabel(task.status)}
+            {getStatusLabel(
+              task.status
+            )}
           </span>
 
         </div>
 
 
+        {/* DESCRIPTION */}
+
         {task.description && (
 
           <p className="task-description">
+
             {task.description}
+
           </p>
 
         )}
 
 
+        {/* META */}
+
         <div className="task-meta">
 
           <span>
-            🚩 {getPriorityLabel(task.priority)}
+            🚩{" "}
+            {getPriorityLabel(
+              task.priority
+            )}
           </span>
 
+
           <span>
-            📅 {formatDeadline(task.deadline)}
+            📅{" "}
+            {formatDeadline(
+              task.deadline
+            )}
           </span>
+
 
           {totalSubtasks > 0 && (
 
             <span>
-              ☑ {completedSubtasks}/{totalSubtasks}
+              ☑{" "}
+              {completedSubtasks}/
+              {totalSubtasks}
             </span>
 
           )}
 
         </div>
 
+
+        {/* ASSIGNEE */}
+
+        {assignee && (
+
+          <div className="task-card-assignee">
+
+            <UserAvatar
+              user={assignee}
+              size="small"
+            />
+
+          </div>
+
+        )}
+
+
+        {/* SUPPORTERS */}
+
+        {supporters.length > 0 && (
+
+          <div className="task-card-team">
+
+            <span className="task-card-team-label">
+              Người hỗ trợ
+            </span>
+
+
+            <div className="task-card-supporters">
+
+              {visibleSupporters.map(
+                (supporter) => {
+
+                  const supporterUser =
+                    users.find(
+                      (user) =>
+                        user.id ===
+                        supporter.user_id
+                    );
+
+
+                  if (!supporterUser) {
+                    return null;
+                  }
+
+
+                  return (
+
+                    <div
+                      key={
+                        supporter.id
+                      }
+                      className="task-card-supporter"
+                    >
+
+                      <UserAvatar
+                        user={
+                          supporterUser
+                        }
+                        size="small"
+                      />
+
+                    </div>
+
+                  );
+
+                }
+              )}
+
+
+              {remainingSupporters > 0 && (
+
+                <div className="task-card-avatar-more">
+
+                  +{remainingSupporters}
+
+                </div>
+
+              )}
+
+            </div>
+
+          </div>
+
+        )}
+
       </div>
 
+
+      {/* PROGRESS */}
 
       <div className="task-card-progress">
 
@@ -123,8 +272,9 @@ function TaskCard({
             Tiến độ
           </span>
 
+
           <strong>
-            {task.progress}%
+            {task.progress || 0}%
           </strong>
 
         </div>
@@ -135,7 +285,9 @@ function TaskCard({
           <div
             className="progress-fill"
             style={{
-              width: `${task.progress}%`,
+              width: `${
+                task.progress || 0
+              }%`,
             }}
           />
 
@@ -144,7 +296,9 @@ function TaskCard({
       </div>
 
     </div>
+
   );
+
 }
 
 

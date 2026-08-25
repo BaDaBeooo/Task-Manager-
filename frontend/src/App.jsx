@@ -9,6 +9,7 @@ import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import MyTasks from "./pages/MyTasks";
 import Tasks from "./pages/Tasks";
+import Settings from "./pages/Settings";
 
 
 function ProtectedRoute({ children }) {
@@ -98,6 +99,16 @@ function App() {
           }
         />
 
+        {/* SETTINGS */}
+
+        <Route
+          path="/settings"
+          element={
+            <ProtectedRoute>
+              <Settings />
+            </ProtectedRoute>
+          } 
+        /> 
 
         {/* UNKNOWN ROUTE */}
 

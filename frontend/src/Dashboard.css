@@ -1539,3 +1539,971 @@
   }
 
 }
+
+/* TASK SORT */
+
+.task-sort {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.task-sort label {
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.task-sort select {
+  height: 36px;
+
+  padding: 0 34px 0 12px;
+
+  border: 1px solid #dbe2ea;
+  border-radius: 8px;
+
+  background: #ffffff;
+
+  color: #334155;
+
+  font-size: 14px;
+  font-weight: 500;
+
+  outline: none;
+
+  cursor: pointer;
+
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.task-sort select:hover {
+  border-color: #94a3b8;
+}
+
+.task-sort select:focus {
+  border-color: #2563eb;
+
+  box-shadow:
+    0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+
+@media (max-width: 900px) {
+
+  .task-sort {
+    justify-content: flex-end;
+  }
+
+}
+
+
+@media (max-width: 600px) {
+
+  .task-sort {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .task-sort select {
+    flex: 1;
+    max-width: 240px;
+  }
+
+}
+.task-edit-form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.task-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.task-form-group label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #334155;
+}
+
+.task-form-group input,
+.task-form-group textarea,
+.task-form-group select {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 11px 12px;
+  border: 1px solid #dbe2ea;
+  border-radius: 8px;
+  background: #fff;
+  color: #172033;
+  font-size: 14px;
+  outline: none;
+}
+
+.task-form-group textarea {
+  resize: vertical;
+}
+
+.task-form-group input:focus,
+.task-form-group textarea:focus,
+.task-form-group select:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.task-edit-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+}
+
+.primary-button {
+  padding: 10px 18px;
+  border: none;
+  border-radius: 8px;
+  background: #2563eb;
+  color: #fff;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.primary-button:hover {
+  background: #1d4ed8;
+}
+
+.primary-button:disabled,
+.secondary-button:disabled,
+.danger-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.danger-button {
+  padding: 10px 18px;
+  border: none;
+  border-radius: 8px;
+  background: #dc2626;
+  color: #fff;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.danger-button:hover {
+  background: #b91c1c;
+}
+
+.delete-confirm-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(15, 23, 42, 0.55);
+}
+
+.delete-confirm-modal {
+  width: 100%;
+  max-width: 420px;
+  padding: 28px;
+  background: #fff;
+  border-radius: 14px;
+  text-align: center;
+  box-shadow: 0 20px 60px rgba(15, 23, 42, 0.25);
+}
+
+.delete-confirm-icon {
+  font-size: 36px;
+  margin-bottom: 10px;
+}
+
+.delete-confirm-modal h3 {
+  margin: 0 0 10px;
+  color: #172033;
+}
+
+.delete-confirm-modal p {
+  margin: 6px 0;
+  color: #64748b;
+  line-height: 1.5;
+}
+
+.delete-confirm-actions {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 22px;
+}
+
+@media (max-width: 600px) {
+  .task-edit-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .task-detail-footer {
+    flex-wrap: wrap;
+  }
+}
+/* SUPPORTERS */
+
+.supporter-picker {
+  border: 1px solid #d1d5db;
+  border-radius: 10px;
+  background: #f9fafb;
+  overflow: hidden;
+}
+
+.supporter-list {
+  display: flex;
+  flex-direction: column;
+  max-height: 210px;
+  overflow-y: auto;
+}
+
+.supporter-option {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+
+  padding: 10px 12px;
+
+  border: none;
+  border-bottom: 1px solid #e5e7eb;
+
+  background: white;
+
+  text-align: left;
+
+  cursor: pointer;
+}
+
+.supporter-option:last-child {
+  border-bottom: none;
+}
+
+.supporter-option:hover {
+  background: #f8fafc;
+}
+
+.supporter-option.selected {
+  background: #eff6ff;
+}
+
+.supporter-checkbox {
+  width: 20px;
+  height: 20px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  flex-shrink: 0;
+
+  border: 1px solid #cbd5e1;
+  border-radius: 5px;
+
+  color: white;
+
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.supporter-option.selected
+.supporter-checkbox {
+  border-color: #2563eb;
+  background: #2563eb;
+}
+
+.supporter-avatar {
+  width: 32px;
+  height: 32px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  flex-shrink: 0;
+
+  border-radius: 50%;
+
+  background: #dbeafe;
+
+  color: #2563eb;
+
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.supporter-info {
+  min-width: 0;
+
+  display: flex;
+  flex-direction: column;
+
+  gap: 2px;
+}
+
+.supporter-info strong {
+  color: #1f2937;
+  font-size: 13px;
+}
+
+.supporter-info small {
+  color: #9ca3af;
+  font-size: 11px;
+}
+
+.supporter-loading,
+.supporter-empty {
+  padding: 14px;
+
+  color: #9ca3af;
+
+  font-size: 12px;
+
+  text-align: center;
+}
+
+.selected-supporters {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+
+  margin-top: 7px;
+
+  color: #64748b;
+
+  font-size: 11px;
+}
+
+.selected-supporters strong {
+  color: #2563eb;
+}
+.task-detail-supporters {
+  margin-top: 24px;
+}
+
+.task-detail-supporters h3 {
+  margin-bottom: 12px;
+}
+
+.task-detail-supporter-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.task-detail-supporter {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  background: #f8fafc;
+}
+
+.task-detail-supporter .supporter-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.task-detail-supporter .supporter-info strong {
+  font-size: 13px;
+  color: #1f2937;
+}
+
+.task-detail-supporter .supporter-info small {
+  font-size: 11px;
+  color: #94a3b8;
+}
+/* ========================================
+   TASK CARD - TEAM
+======================================== */
+
+.task-card-team {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  margin-top: 12px;
+}
+
+.task-card-team-label {
+  font-size: 13px;
+}
+
+.task-card-avatars {
+  display: flex;
+  align-items: center;
+}
+
+.task-card-avatar {
+  width: 25px;
+  height: 25px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  margin-left: -5px;
+
+  border: 2px solid white;
+  border-radius: 50%;
+
+  background: #dbeafe;
+  color: #2563eb;
+
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.task-card-avatar:first-child {
+  margin-left: 0;
+}
+
+.task-card-avatar-more {
+  background: #f1f5f9;
+  color: #64748b;
+
+  font-size: 9px;
+}
+
+.task-card-team-count {
+  color: #64748b;
+
+  font-size: 10px;
+  font-weight: 500;
+}
+/* ========================================
+   SETTINGS
+======================================== */
+
+.settings-content {
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+.settings-card {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+.settings-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 22px 24px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.settings-card-header h2 {
+  margin: 0 0 5px;
+  color: #111827;
+  font-size: 18px;
+}
+
+.settings-card-header p {
+  margin: 0;
+  color: #6b7280;
+  font-size: 13px;
+}
+
+.settings-loading,
+.settings-empty {
+  padding: 40px;
+  color: #9ca3af;
+  text-align: center;
+  font-size: 13px;
+}
+
+.roles-table-header,
+.role-row {
+  display: grid;
+  grid-template-columns:
+    2fr
+    1.2fr
+    1.4fr
+    1.3fr;
+  align-items: center;
+  gap: 20px;
+  padding: 14px 24px;
+}
+
+.roles-table-header {
+  background: #f8fafc;
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.role-row {
+  min-height: 64px;
+  border-top: 1px solid #f1f5f9;
+}
+
+.role-name {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.role-name strong {
+  color: #1f2937;
+  font-size: 13px;
+}
+
+.role-icon {
+  width: 32px;
+  height: 32px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 9px;
+
+  background: #eff6ff;
+  color: #2563eb;
+
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.role-row code {
+  color: #64748b;
+  font-size: 11px;
+}
+
+.role-status {
+  width: fit-content;
+  padding: 5px 9px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.role-status.active {
+  background: #ecfdf5;
+  color: #059669;
+}
+
+.role-status.inactive {
+  background: #f3f4f6;
+  color: #6b7280;
+}
+
+.role-actions {
+  display: flex;
+  gap: 7px;
+}
+
+.role-actions button {
+  padding: 7px 11px;
+  font-size: 11px;
+}
+
+.settings-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  padding: 20px;
+
+  background: rgba(15, 23, 42, 0.45);
+}
+
+.settings-modal {
+  width: 100%;
+  max-width: 480px;
+
+  background: white;
+  border-radius: 14px;
+
+  box-shadow:
+    0 20px 50px rgba(15, 23, 42, 0.2);
+
+  overflow: hidden;
+}
+
+.settings-modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+
+  padding: 22px 24px;
+
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.settings-modal-header h2 {
+  margin: 0 0 5px;
+
+  color: #111827;
+  font-size: 18px;
+}
+
+.settings-modal-header p {
+  margin: 0;
+
+  color: #6b7280;
+  font-size: 12px;
+}
+
+.settings-modal form {
+  padding: 22px 24px;
+}
+
+.settings-form-group {
+  margin-bottom: 18px;
+}
+
+.settings-form-group label {
+  display: block;
+
+  margin-bottom: 7px;
+
+  color: #374151;
+
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.settings-form-group input {
+  width: 100%;
+  box-sizing: border-box;
+
+  padding: 10px 12px;
+
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+
+  outline: none;
+
+  color: #1f2937;
+  font-size: 13px;
+}
+
+.settings-form-group input:focus {
+  border-color: #2563eb;
+
+  box-shadow:
+    0 0 0 3px rgba(
+      37,
+      99,
+      235,
+      0.1
+    );
+}
+
+.settings-form-group small {
+  display: block;
+
+  margin-top: 6px;
+
+  color: #9ca3af;
+
+  font-size: 10px;
+}
+
+.settings-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 9px;
+
+  margin-top: 24px;
+  padding-top: 18px;
+
+  border-top: 1px solid #e5e7eb;
+}
+/* ========================================
+   USER AVATAR
+======================================== */
+
+.user-avatar-wrapper {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+}
+
+.user-avatar-circle {
+  flex-shrink: 0;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 50%;
+
+  color: #2563eb;
+  font-weight: 600;
+}
+
+.user-avatar-info {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.user-avatar-name {
+  color: #111827;
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.user-avatar-role {
+  margin-top: 2px;
+
+  color: #6b7280;
+  line-height: 1.2;
+}
+
+
+/* SMALL */
+
+.user-avatar-small {
+  gap: 7px;
+}
+
+.user-avatar-small .user-avatar-circle {
+  width: 28px;
+  height: 28px;
+
+  font-size: 11px;
+}
+
+.user-avatar-small .user-avatar-name {
+  font-size: 11px;
+}
+
+.user-avatar-small .user-avatar-role {
+  font-size: 9px;
+}
+
+
+/* MEDIUM */
+
+.user-avatar-medium {
+  gap: 9px;
+}
+
+.user-avatar-medium .user-avatar-circle {
+  width: 36px;
+  height: 36px;
+
+  font-size: 13px;
+}
+
+.user-avatar-medium .user-avatar-name {
+  font-size: 13px;
+}
+
+.user-avatar-medium .user-avatar-role {
+  font-size: 10px;
+}
+
+
+/* LARGE */
+
+.user-avatar-large {
+  gap: 11px;
+}
+
+.user-avatar-large .user-avatar-circle {
+  width: 44px;
+  height: 44px;
+
+  font-size: 16px;
+}
+
+.user-avatar-large .user-avatar-name {
+  font-size: 14px;
+}
+
+.user-avatar-large .user-avatar-role {
+  font-size: 11px;
+}
+/* ========================================
+   TASK CARD - PEOPLE
+======================================== */
+
+.task-card-assignee {
+  margin-top: 12px;
+  margin-bottom: 12px;
+}
+
+.task-card-team {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+
+  margin-top: 10px;
+  padding-top: 10px;
+
+  border-top: 1px solid #f1f5f9;
+}
+
+.task-card-team-label {
+  flex-shrink: 0;
+
+  min-width: 90px;
+
+  padding-top: 5px;
+
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.task-card-supporters {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.task-card-supporter {
+  display: flex;
+  align-items: center;
+}
+
+
+/* Avatar + tên trong TaskCard */
+
+.task-card-assignee .user-avatar-small,
+.task-card-supporter .user-avatar-small {
+  gap: 9px;
+}
+
+.task-card-assignee .user-avatar-circle,
+.task-card-supporter .user-avatar-circle {
+  width: 30px;
+  height: 30px;
+
+  font-size: 11px;
+}
+
+.task-card-assignee .user-avatar-name,
+.task-card-supporter .user-avatar-name {
+  font-size: 11px;
+}
+
+.task-card-assignee .user-avatar-role,
+.task-card-supporter .user-avatar-role {
+  font-size: 9px;
+}
+/* ========================================
+   SETTINGS - USERS
+======================================== */
+
+.settings-users-card {
+  margin-top: 20px;
+}
+
+.settings-users-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.settings-user-row {
+  display: grid;
+  grid-template-columns: minmax(280px, 1fr) 220px;
+
+  align-items: center;
+
+  gap: 30px;
+
+  min-height: 72px;
+
+  padding: 14px 24px;
+
+  border-top: 1px solid #f1f5f9;
+}
+
+.settings-user-info {
+  min-width: 0;
+}
+
+.settings-user-role {
+  display: flex;
+  flex-direction: column;
+
+  gap: 5px;
+}
+
+.settings-user-role label {
+  color: #64748b;
+
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.settings-user-role select {
+  width: 100%;
+
+  box-sizing: border-box;
+
+  padding: 9px 11px;
+
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+
+  background: white;
+
+  color: #374151;
+
+  font-size: 12px;
+
+  outline: none;
+
+  cursor: pointer;
+}
+
+.settings-user-role select:focus {
+  border-color: #2563eb;
+
+  box-shadow:
+    0 0 0 3px
+    rgba(37, 99, 235, 0.1);
+}
+
+.settings-user-role select:disabled {
+  background: #f8fafc;
+
+  color: #94a3b8;
+
+  cursor: not-allowed;
+}
+
+.settings-user-role small {
+  color: #9ca3af;
+
+  font-size: 10px;
+}
+.settings-readonly {
+  color: #94a3b8;
+  font-size: 11px;
+}
+
+.settings-user-role select:disabled {
+  opacity: 0.75;
+}

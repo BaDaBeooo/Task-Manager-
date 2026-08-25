@@ -29,6 +29,10 @@ router = APIRouter(
 security = HTTPBearer()
 
 
+# =========================================================
+# REGISTER
+# =========================================================
+
 @router.post(
     "/register",
     response_model=UserResponse,
@@ -53,6 +57,10 @@ def register(
         user_data,
     )
 
+
+# =========================================================
+# LOGIN
+# =========================================================
 
 @router.post(
     "/login",
@@ -90,7 +98,11 @@ def login(
 
     token = create_access_token(
         user_id=user.id,
-        role=user.role,
+        role=(
+            user.role.code
+            if user.role
+            else None
+        ),
     )
 
     return {
@@ -98,6 +110,10 @@ def login(
         "token_type": "bearer",
     }
 
+
+# =========================================================
+# CURRENT USER
+# =========================================================
 
 def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(
@@ -137,6 +153,10 @@ def get_current_user(
     return user
 
 
+# =========================================================
+# GET ME
+# =========================================================
+
 @router.get(
     "/me",
     response_model=UserResponse,
@@ -144,4 +164,14 @@ def get_current_user(
 def get_me(
     current_user=Depends(get_current_user),
 ):
-    return current_user
+    return UserResponse(
+        id=current_user.id,
+        username=current_user.username,
+        full_name=current_user.full_name,
+        role=(
+            current_user.role.name
+            if current_user.role
+            else "Chưa phân loại"
+        ),
+        is_active=current_user.is_active,
+    )

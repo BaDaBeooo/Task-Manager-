@@ -12,9 +12,14 @@ import "../Dashboard.css";
 
 function MyTasks() {
 
-  const [user, setUser] = useState(null);
+  const [user, setUser] =
+    useState(null);
 
-  const [tasks, setTasks] = useState([]);
+  const [users, setUsers] =
+    useState([]);
+
+  const [tasks, setTasks] =
+    useState([]);
 
   const [loading, setLoading] =
     useState(true);
@@ -25,6 +30,10 @@ function MyTasks() {
   const [selectedTask, setSelectedTask] =
     useState(null);
 
+
+  // =====================================================
+  // LOAD DATA
+  // =====================================================
 
   const loadMyTasks = async () => {
 
@@ -37,6 +46,7 @@ function MyTasks() {
       const [
         userResponse,
         tasksResponse,
+        usersResponse,
       ] = await Promise.all([
 
         api.get("/auth/me"),
@@ -45,6 +55,8 @@ function MyTasks() {
           "/tasks?mine=true"
         ),
 
+        api.get("/users"),
+
       ]);
 
 
@@ -52,8 +64,14 @@ function MyTasks() {
         userResponse.data
       );
 
+
       setTasks(
         tasksResponse.data
+      );
+
+
+      setUsers(
+        usersResponse.data
       );
 
 
@@ -100,6 +118,10 @@ function MyTasks() {
   }, []);
 
 
+  // =====================================================
+  // LOGOUT
+  // =====================================================
+
   const handleLogout = () => {
 
     localStorage.removeItem(
@@ -111,30 +133,48 @@ function MyTasks() {
   };
 
 
-  const handleTaskClick = (task) => {
+  // =====================================================
+  // OPEN TASK DETAIL
+  // =====================================================
+
+  const handleTaskClick = (
+    task
+  ) => {
 
     setSelectedTask(task);
 
   };
 
 
+  // =====================================================
+  // TASK UPDATED
+  // =====================================================
+
   const handleTaskUpdated = (
     updatedTask
   ) => {
 
-    setTasks((currentTasks) =>
-      currentTasks.map((task) =>
-        task.id === updatedTask.id
-          ? updatedTask
-          : task
-      )
+    setTasks(
+      (currentTasks) =>
+        currentTasks.map(
+          (task) =>
+            task.id === updatedTask.id
+              ? updatedTask
+              : task
+        )
     );
 
 
-    setSelectedTask(updatedTask);
+    setSelectedTask(
+      updatedTask
+    );
 
   };
 
+
+  // =====================================================
+  // CLOSE TASK DETAIL
+  // =====================================================
 
   const handleCloseDetail = () => {
 
@@ -142,6 +182,32 @@ function MyTasks() {
 
   };
 
+
+  // =====================================================
+  // TASK DELETED
+  // =====================================================
+
+  const handleTaskDeleted = (
+    taskId
+  ) => {
+
+    setTasks(
+      (currentTasks) =>
+        currentTasks.filter(
+          (task) =>
+            task.id !== taskId
+        )
+    );
+
+
+    setSelectedTask(null);
+
+  };
+
+
+  // =====================================================
+  // STATS
+  // =====================================================
 
   const totalTasks =
     tasks.length;
@@ -168,9 +234,14 @@ function MyTasks() {
     ).length;
 
 
+  // =====================================================
+  // LOADING
+  // =====================================================
+
   if (loading) {
 
     return (
+
       <div className="dashboard-loading">
 
         <div className="loading-spinner" />
@@ -180,20 +251,32 @@ function MyTasks() {
         </span>
 
       </div>
+
     );
 
   }
 
 
+  // =====================================================
+  // RENDER
+  // =====================================================
+
   return (
+
     <div className="dashboard-layout">
 
+
+      {/* SIDEBAR */}
 
       <Sidebar />
 
 
+      {/* MAIN */}
+
       <main className="dashboard-main">
 
+
+        {/* TOPBAR */}
 
         <Topbar
           user={user}
@@ -204,7 +287,7 @@ function MyTasks() {
         <div className="dashboard-content">
 
 
-          {/* TITLE */}
+          {/* HEADER */}
 
           <div className="welcome-section">
 
@@ -224,6 +307,8 @@ function MyTasks() {
           </div>
 
 
+          {/* ERROR */}
+
           {error && (
 
             <div className="dashboard-error">
@@ -233,27 +318,29 @@ function MyTasks() {
           )}
 
 
-          {/* STATISTICS */}
+          {/* STATS */}
 
           <div className="stats-grid">
 
+
+            {/* TOTAL */}
 
             <div className="stat-card">
 
               <div className="stat-card-top">
 
-                <div className="stat-card-title">
-                  Tổng công việc
-                </div>
-
                 <div className="stat-card-icon">
                   📋
                 </div>
 
+                <div className="stat-card-value">
+                  {totalTasks}
+                </div>
+
               </div>
 
-              <div className="stat-card-value">
-                {totalTasks}
+              <div className="stat-card-title">
+                Tổng công việc
               </div>
 
               <div className="stat-card-description">
@@ -263,79 +350,86 @@ function MyTasks() {
             </div>
 
 
+            {/* TODO */}
+
             <div className="stat-card">
 
               <div className="stat-card-top">
-
-                <div className="stat-card-title">
-                  Chưa làm
-                </div>
 
                 <div className="stat-card-icon">
                   📝
                 </div>
 
+                <div className="stat-card-value">
+                  {todoTasks}
+                </div>
+
               </div>
 
-              <div className="stat-card-value">
-                {todoTasks}
+              <div className="stat-card-title">
+                Chưa làm
               </div>
 
               <div className="stat-card-description">
-                Đang chờ xử lý
+                Công việc đang chờ
               </div>
 
             </div>
 
 
+            {/* IN PROGRESS */}
+
             <div className="stat-card">
 
               <div className="stat-card-top">
-
-                <div className="stat-card-title">
-                  Đang làm
-                </div>
 
                 <div className="stat-card-icon">
-                  ⚡
+                  🔄
+                </div>
+
+                <div className="stat-card-value">
+                  {inProgressTasks}
                 </div>
 
               </div>
 
-              <div className="stat-card-value">
-                {inProgressTasks}
+              <div className="stat-card-title">
+                Đang làm
               </div>
 
               <div className="stat-card-description">
-                Đang thực hiện
+                Công việc đang thực hiện
               </div>
 
             </div>
 
 
+            {/* COMPLETED */}
+
             <div className="stat-card">
 
               <div className="stat-card-top">
-
-                <div className="stat-card-title">
-                  Hoàn thành
-                </div>
 
                 <div className="stat-card-icon">
                   ✅
                 </div>
 
+                <div className="stat-card-value">
+                  {completedTasks}
+                </div>
+
               </div>
 
-              <div className="stat-card-value">
-                {completedTasks}
-              </div>
-
-              <div className="stat-card-description">
+              <div className="stat-card-title">
                 Đã hoàn thành
               </div>
 
+              <div className="stat-card-description">
+                Công việc hoàn tất
+              </div>
+
             </div>
+
 
           </div>
 
@@ -392,6 +486,7 @@ function MyTasks() {
                     <TaskCard
                       key={task.id}
                       task={task}
+                      users={users}
                       onClick={
                         handleTaskClick
                       }
@@ -409,6 +504,7 @@ function MyTasks() {
 
         </div>
 
+
       </main>
 
 
@@ -417,19 +513,32 @@ function MyTasks() {
       {selectedTask && (
 
         <TaskDetail
+
           task={selectedTask}
+
+          users={users}
+
           onClose={
             handleCloseDetail
           }
+
           onUpdated={
             handleTaskUpdated
           }
+
+          onDeleted={
+            handleTaskDeleted
+          }
+
         />
 
       )}
 
+
     </div>
+
   );
+
 }
 
 

@@ -1,7 +1,7 @@
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, String
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy import Boolean, DateTime, ForeignKey, String
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from ..database.connection import Base
 
@@ -31,10 +31,14 @@ class User(Base):
         nullable=False,
     )
 
-    role: Mapped[str] = mapped_column(
-        String(20),
-        default="member",
-        nullable=False,
+    role_id: Mapped[int | None] = mapped_column(
+        ForeignKey("roles.id"),
+        nullable=True,
+    )
+
+    role = relationship(
+        "Role",
+        back_populates="users",
     )
 
     telegram_chat_id: Mapped[str | None] = mapped_column(
