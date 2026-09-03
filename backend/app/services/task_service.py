@@ -3,9 +3,9 @@ from datetime import datetime
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
-from ..models.task import Subtask, Task, TaskSupporter
+from ..models.task import Subtask, Task, TaskSupporter, TaskActivity
 from ..schemas.task import TaskCreate, TaskUpdate
-
+from .notification_service import create_notification
 
 # =========================================================
 # CREATE TASK
@@ -29,7 +29,6 @@ def create_task(
     )
 
     for subtask_data in task_data.subtasks:
-
         task.subtasks.append(
             Subtask(
                 title=subtask_data.title,
@@ -40,8 +39,26 @@ def create_task(
     db.commit()
     db.refresh(task)
 
-    return task
+    #    # -----------------------------------------------------
+    # NOTIFICATION - TASK ASSIGNED
+    # -----------------------------------------------------
 
+    if (
+        task.assignee_id is not None
+        and task.assignee_id != creator_id
+    ):
+        create_notification(
+            db=db,
+            user_id=task.assignee_id,
+            task_id=task.id,
+            type="task_assigned",
+            title="Task mới được giao",
+            message=(
+                f'Bạn được giao task "{task.title}"'
+            ),
+        )
+
+    return task
 
 # =========================================================
 # GET SINGLE TASK
@@ -124,20 +141,70 @@ def update_task(
         exclude_unset=True
     )
 
+    # -----------------------------------------------------
+    # SAVE OLD ASSIGNEE
+    # -----------------------------------------------------
+
+    old_assignee_id = task.assignee_id
+
+    # -----------------------------------------------------
+    # UPDATE TASK
+    # -----------------------------------------------------
 
     for field, value in update_data.items():
-
         setattr(
             task,
             field,
             value,
         )
 
-
     task.updated_at = datetime.utcnow()
 
     db.commit()
     db.refresh(task)
+
+    # -----------------------------------------------------
+    # NOTIFICATION - ASSIGNEE CHANGED
+    # -----------------------------------------------------
+
+    new_assignee_id = task.assignee_id
+
+    if new_assignee_id != old_assignee_id:
+
+        # ---------------------------------------------
+        # NEW ASSIGNEE
+        # ---------------------------------------------
+
+        if new_assignee_id is not None:
+
+            create_notification(
+                db=db,
+                user_id=new_assignee_id,
+                task_id=task.id,
+                type="task_assigned",
+                title="Task mới được giao",
+                message=(
+                    f'Bạn được giao task "{task.title}"'
+                ),
+            )
+
+        # ---------------------------------------------
+        # OLD ASSIGNEE
+        # ---------------------------------------------
+
+        if old_assignee_id is not None:
+
+            create_notification(
+                db=db,
+                user_id=old_assignee_id,
+                task_id=task.id,
+                type="task_unassigned",
+                title="Bạn không còn phụ trách task",
+                message=(
+                    f'Bạn không còn phụ trách task '
+                    f'"{task.title}"'
+                ),
+            )
 
     return task
 
@@ -164,24 +231,118 @@ def update_subtask(
     db: Session,
     subtask: Subtask,
     completed: bool,
+    user_id: int,
 ) -> Subtask:
+
+    # -----------------------------------------------------
+    # UPDATE SUBTASK STATUS
+    # -----------------------------------------------------
 
     subtask.completed = completed
 
+    if completed:
+        subtask.completed_at = datetime.utcnow()
+        action = "completed"
+    else:
+        subtask.completed_at = None
+        action = "uncompleted"
+
+    # -----------------------------------------------------
+    # CREATE ACTIVITY LOG
+    # -----------------------------------------------------
+
+    activity = TaskActivity(
+        task_id=subtask.task_id,
+        user_id=user_id,
+        subtask_id=subtask.id,
+        action=action,
+    )
+
+    db.add(activity)
+
+    # -----------------------------------------------------
+    # SAVE SUBTASK + ACTIVITY
+    # -----------------------------------------------------
+
+    db.commit()
+    db.refresh(subtask)
+
+    # -----------------------------------------------------
+    # GET TASK
+    # -----------------------------------------------------
+
+    task = db.get(
+        Task,
+        subtask.task_id,
+    )
+
+    if task is None:
+        return subtask
+
+    # -----------------------------------------------------
+    # NOTIFICATION - SUBTASK
+    # -----------------------------------------------------
+
+    recipient_ids = set()
+
+    # Creator
+    if task.creator_id is not None:
+        recipient_ids.add(
+            task.creator_id
+        )
+
+    # Assignee
+    if task.assignee_id is not None:
+        recipient_ids.add(
+            task.assignee_id
+        )
+
+    # Supporters
+    for supporter in task.supporter_links:
+
+        recipient_ids.add(
+            supporter.user_id
+        )
+
+    # Không gửi cho chính người vừa thao tác
+    recipient_ids.discard(user_id)
+
+    # -----------------------------------------------------
+    # NOTIFICATION MESSAGE
+    # -----------------------------------------------------
 
     if completed:
 
-        subtask.completed_at = (
-            datetime.utcnow()
+        notification_type = "subtask_completed"
+        notification_title = "Subtask đã hoàn thành"
+        notification_message = (
+            f'Subtask "{subtask.title}" '
+            f'trong task "{task.title}" đã được hoàn thành'
         )
 
     else:
 
-        subtask.completed_at = None
+        notification_type = "subtask_uncompleted"
+        notification_title = "Subtask đã bỏ hoàn thành"
+        notification_message = (
+            f'Subtask "{subtask.title}" '
+            f'trong task "{task.title}" đã được bỏ hoàn thành'
+        )
 
+    # -----------------------------------------------------
+    # CREATE NOTIFICATIONS
+    # -----------------------------------------------------
 
-    db.commit()
-    db.refresh(subtask)
+    for recipient_id in recipient_ids:
+
+        create_notification(
+            db=db,
+            user_id=recipient_id,
+            task_id=task.id,
+            type=notification_type,
+            title=notification_title,
+            message=notification_message,
+        )
 
     return subtask
 
@@ -195,21 +356,21 @@ def recalculate_task_progress(
     task: Task,
 ) -> Task:
 
+    # -----------------------------------------------------
+    # SAVE OLD STATUS
+    # -----------------------------------------------------
+
+    old_status = task.status
+
     total_subtasks = len(
         task.subtasks
     )
 
-
     completed_subtasks = sum(
-
         1
-
         for subtask in task.subtasks
-
         if subtask.completed
-
     )
-
 
     # -----------------------------------------------------
     # PROGRESS
@@ -222,14 +383,80 @@ def recalculate_task_progress(
     else:
 
         task.progress = round(
-
             (
                 completed_subtasks
                 / total_subtasks
             )
             * 100
-
         )
+
+    # -----------------------------------------------------
+    # STATUS
+    # -----------------------------------------------------
+
+    if total_subtasks > 0:
+
+        if completed_subtasks == total_subtasks:
+
+            task.status = "completed"
+
+        elif completed_subtasks > 0:
+
+            task.status = "in_progress"
+
+        else:
+
+            task.status = "todo"
+
+    task.updated_at = datetime.utcnow()
+
+    db.commit()
+    db.refresh(task)
+
+    # -----------------------------------------------------
+    # NOTIFICATION - TASK COMPLETED
+    # -----------------------------------------------------
+
+    if (
+        old_status != "completed"
+        and task.status == "completed"
+    ):
+
+        recipient_ids = set()
+
+        # Creator
+        if task.creator_id is not None:
+            recipient_ids.add(
+                task.creator_id
+            )
+
+        # Assignee
+        if task.assignee_id is not None:
+            recipient_ids.add(
+                task.assignee_id
+            )
+
+        # Supporters
+        for supporter in task.supporter_links:
+
+            recipient_ids.add(
+                supporter.user_id
+            )
+
+        for user_id in recipient_ids:
+
+            create_notification(
+                db=db,
+                user_id=user_id,
+                task_id=task.id,
+                type="task_completed",
+                title="Task đã hoàn thành",
+                message=(
+                    f'Task "{task.title}" đã hoàn thành'
+                ),
+            )
+
+    return task
 
 
     # -----------------------------------------------------

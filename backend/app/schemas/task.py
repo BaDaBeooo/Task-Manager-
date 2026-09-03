@@ -72,3 +72,16 @@ class TaskResponse(BaseModel):
         default_factory=list,
         validation_alias="supporter_links",
     )
+
+    activities: list[TaskActivityResponse] = []
+class TaskActivityResponse(BaseModel):
+    model_config = ConfigDict(
+        from_attributes=True
+    )
+
+    id: int
+    task_id: int
+    user_id: int
+    subtask_id: int | None
+    action: str
+    created_at: datetime

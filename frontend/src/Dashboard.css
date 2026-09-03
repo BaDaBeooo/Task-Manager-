@@ -2993,3 +2993,236 @@
   justify-content: center;
   gap: 8px;
 }
+/* =========================================================
+   TASK ACTIVITY LOG
+   ========================================================= */
+
+.task-activity-section {
+  margin-top: 28px;
+  padding: 24px 24px 0;
+  border-top: 1px solid #e5e7eb;
+}
+
+.task-activity-section h3 {
+  margin: 0 0 16px;
+  font-size: 16px;
+  font-weight: 700;
+  color: #111827;
+}
+
+.activity-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.activity-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.activity-icon {
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 50%;
+  background: #f3f4f6;
+
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.activity-content {
+  min-width: 0;
+  padding-top: 2px;
+}
+
+.activity-text {
+  font-size: 14px;
+  line-height: 1.5;
+  color: #374151;
+}
+
+.activity-text strong {
+  color: #111827;
+  font-weight: 600;
+}
+
+.activity-time {
+  margin-top: 3px;
+  font-size: 12px;
+  color: #9ca3af;
+}
+
+.activity-empty {
+  padding: 14px 16px;
+  border-radius: 8px;
+  background: #f9fafb;
+  color: #9ca3af;
+  font-size: 14px;
+}
+/* =========================================================
+   NOTIFICATION BELL
+   ========================================================= */
+
+.notification-bell {
+  position: relative;
+}
+
+.notification-button {
+  position: relative;
+
+  width: 40px;
+  height: 40px;
+
+  border: none;
+  border-radius: 8px;
+
+  background: transparent;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  font-size: 20px;
+
+  cursor: pointer;
+}
+
+.notification-button:hover {
+  background: #f3f4f6;
+}
+
+.notification-badge {
+  position: absolute;
+
+  top: 2px;
+  right: 1px;
+
+  min-width: 17px;
+  height: 17px;
+
+  padding: 0 4px;
+
+  border-radius: 999px;
+
+  background: #ef4444;
+  color: white;
+
+  font-size: 10px;
+  font-weight: 700;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.notification-dropdown {
+  position: absolute;
+
+  top: calc(100% + 10px);
+  right: 0;
+
+  width: 360px;
+  max-height: 460px;
+
+  background: white;
+
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+
+  box-shadow:
+    0 12px 30px rgba(0, 0, 0, 0.12);
+
+  overflow: hidden;
+
+  z-index: 1000;
+}
+
+.notification-header {
+  padding: 14px 16px;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  border-bottom: 1px solid #e5e7eb;
+
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.notification-count {
+  font-size: 12px;
+  font-weight: 500;
+  color: #6b7280;
+}
+
+.notification-list {
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.notification-item {
+  width: 100%;
+
+  padding: 13px 16px;
+
+  border: none;
+  border-bottom: 1px solid #f3f4f6;
+
+  background: white;
+
+  text-align: left;
+
+  cursor: pointer;
+}
+
+.notification-item:hover {
+  background: #f9fafb;
+}
+
+.notification-item.unread {
+  background: #eff6ff;
+}
+
+.notification-item.unread:hover {
+  background: #e5efff;
+}
+
+.notification-item-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #111827;
+}
+
+.notification-item-message {
+  margin-top: 4px;
+
+  font-size: 13px;
+  line-height: 1.45;
+
+  color: #4b5563;
+}
+
+.notification-item-time {
+  margin-top: 6px;
+
+  font-size: 11px;
+  color: #9ca3af;
+}
+
+.notification-empty {
+  padding: 30px 16px;
+
+  text-align: center;
+
+  font-size: 13px;
+  color: #9ca3af;
+}

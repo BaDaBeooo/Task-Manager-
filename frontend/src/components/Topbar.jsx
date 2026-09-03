@@ -1,3 +1,6 @@
+import NotificationBell from "./NotificationBell";
+
+
 function Topbar({ user, onLogout }) {
   return (
     <header className="topbar">
@@ -17,14 +20,7 @@ function Topbar({ user, onLogout }) {
 
       <div className="topbar-right">
 
-        <button
-          className="notification-button"
-          title="Thông báo"
-        >
-          🔔
-
-          <span className="notification-dot" />
-        </button>
+        <NotificationBell />
 
 
         <div className="user-menu">

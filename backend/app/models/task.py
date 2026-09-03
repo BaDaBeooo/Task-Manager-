@@ -128,6 +128,11 @@ class Task(Base):
         cascade="all, delete-orphan",
     )
 
+    activities = relationship(
+        "TaskActivity",
+        back_populates="task",
+        cascade="all, delete-orphan",
+)
 
 class Subtask(Base):
     __tablename__ = "subtasks"
@@ -166,4 +171,50 @@ class Subtask(Base):
     task = relationship(
         "Task",
         back_populates="subtasks",
+    )
+class TaskActivity(Base):
+    __tablename__ = "task_activities"
+
+    id: Mapped[int] = mapped_column(
+        primary_key=True,
+        index=True,
+    )
+
+    task_id: Mapped[int] = mapped_column(
+        ForeignKey("tasks.id"),
+        nullable=False,
+    )
+
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id"),
+        nullable=False,
+    )
+
+    subtask_id: Mapped[int | None] = mapped_column(
+        ForeignKey("subtasks.id"),
+        nullable=True,
+    )
+
+    action: Mapped[str] = mapped_column(
+        String(50),
+        nullable=False,
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=datetime.utcnow,
+        nullable=False,
+    )
+
+    task = relationship(
+        "Task",
+        back_populates="activities"
+    )
+
+    user = relationship(
+        "User",
+    )
+
+    subtask = relationship(
+        "Subtask",
     )

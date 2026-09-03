@@ -19,7 +19,7 @@ from ..services.task_service import (
     update_subtask,
     update_task,
 )
-
+from ..services.notification_service import create_notification
 
 router = APIRouter(
     prefix="/tasks",
@@ -296,6 +296,16 @@ def add_task_supporter(
 
     db.refresh(supporter)
 
+    create_notification(
+        db=db,
+        user_id=user_id,
+        task_id=task_id,
+        type="supporter_added",
+        title="Bạn được thêm làm người hỗ trợ",
+        message=(
+            f'Bạn được thêm làm người hỗ trợ cho task "{task.title}"'
+        ),
+)
 
     return supporter
 
@@ -325,7 +335,6 @@ def remove_task_supporter(
             detail="Task not found",
         )
 
-
     if not can_manage_task(
         current_user,
         task,
@@ -334,7 +343,6 @@ def remove_task_supporter(
             status_code=403,
             detail="Not allowed to manage task supporters",
         )
-
 
     supporter = (
         db.query(TaskSupporter)
@@ -351,13 +359,36 @@ def remove_task_supporter(
             detail="Supporter not found",
         )
 
+    # -----------------------------------------------------
+    # SAVE SUPPORTER ID BEFORE DELETE
+    # -----------------------------------------------------
 
-    db.delete(
-        supporter
-    )
+    removed_user_id = supporter.user_id
 
+    # -----------------------------------------------------
+    # REMOVE SUPPORTER
+    # -----------------------------------------------------
+
+    db.delete(supporter)
     db.commit()
 
+    # -----------------------------------------------------
+    # NOTIFICATION - SUPPORTER REMOVED
+    # -----------------------------------------------------
+
+    if removed_user_id != current_user.id:
+
+        create_notification(
+            db=db,
+            user_id=removed_user_id,
+            task_id=task_id,
+            type="supporter_removed",
+            title="Bạn không còn hỗ trợ task",
+            message=(
+                f'Bạn không còn là người hỗ trợ '
+                f'cho task "{task.title}"'
+            ),
+        )
 
     return {
         "message": "Supporter removed successfully"
@@ -476,7 +507,8 @@ def update_task_subtask(
         db=db,
         subtask=subtask,
         completed=subtask_data.completed,
-    )
+        user_id=current_user.id,
+)
 
 
     return recalculate_task_progress(

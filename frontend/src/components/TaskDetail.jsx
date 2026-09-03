@@ -40,6 +40,28 @@ function formatDeadline(deadline) {
   );
 }
 
+function formatActivityTime(datetime) {
+  if (!datetime) {
+    return "";
+  }
+
+  const date = new Date(datetime);
+
+  if (Number.isNaN(date.getTime())) {
+    return "";
+  }
+
+  return date.toLocaleString(
+    "vi-VN",
+    {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    }
+  );
+}
 
 function toDateInputValue(deadline) {
   if (!deadline) {
@@ -671,7 +693,8 @@ function TaskDetail({
         user.id ===
         currentTask.assignee_id
     );
-
+  const activities =
+        currentTask.activities || [];
 
   const assigneeName =
     assignee?.full_name ||
@@ -1368,7 +1391,115 @@ function TaskDetail({
           )}
 
         </div>
+{/* ACTIVITY LOG */}
 
+<div className="task-activity-section">
+
+  <h3>
+    Lịch sử hoạt động
+  </h3>
+
+  {activities.length === 0 ? (
+
+    <div className="activity-empty">
+      Chưa có hoạt động nào.
+    </div>
+
+  ) : (
+
+    <div className="activity-list">
+
+      {[...activities]
+        .sort(
+          (a, b) =>
+            new Date(b.created_at) -
+            new Date(a.created_at)
+        )
+        .map((activity) => {
+
+          const activityUser =
+            users.find(
+              (user) =>
+                user.id ===
+                activity.user_id
+            );
+
+          const activitySubtask =
+            currentTask.subtasks?.find(
+              (subtask) =>
+                subtask.id ===
+                activity.subtask_id
+            );
+
+          const userName =
+            activityUser?.full_name ||
+            activityUser?.username ||
+            `User #${activity.user_id}`;
+
+          const subtaskTitle =
+            activitySubtask?.title ||
+            "công việc";
+
+          const isCompleted =
+            activity.action ===
+            "completed";
+
+          return (
+
+            <div
+              key={activity.id}
+              className="activity-item"
+            >
+
+              <div className="activity-icon">
+
+                {isCompleted
+                  ? "✓"
+                  : "↩"}
+
+              </div>
+
+
+              <div className="activity-content">
+
+                <div className="activity-text">
+
+                  <strong>
+                    {userName}
+                  </strong>
+
+                  {isCompleted
+                    ? " đã hoàn thành "
+                    : " đã bỏ hoàn thành "}
+
+                  <strong>
+                    "{subtaskTitle}"
+                  </strong>
+
+                </div>
+
+
+                <div className="activity-time">
+
+                  {formatActivityTime(
+                    activity.created_at
+                  )}
+
+                </div>
+
+              </div>
+
+            </div>
+
+          );
+
+        })}
+
+    </div>
+
+  )}
+
+</div>
 
         {/* FOOTER */}
 

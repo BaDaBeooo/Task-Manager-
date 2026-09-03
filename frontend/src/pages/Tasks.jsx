@@ -7,6 +7,7 @@ import Topbar from "../components/Topbar";
 import TaskCard from "../components/TaskCard";
 import TaskModal from "../components/TaskModal";
 import TaskDetail from "../components/TaskDetail";
+import { useSearchParams } from "react-router-dom";
 
 import "../Dashboard.css";
 
@@ -34,7 +35,9 @@ function Tasks() {
 
   const [selectedTask, setSelectedTask] =
     useState(null);
-
+  
+  const [searchParams, setSearchParams] =
+    useSearchParams();
 
   // =====================================================
   // FILTER
@@ -137,7 +140,36 @@ function Tasks() {
 
   }, []);
 
+  useEffect(() => {
 
+  const taskId =
+    searchParams.get("task");
+
+  if (!taskId || tasks.length === 0) {
+    return;
+  }
+
+  const task = tasks.find(
+    (item) =>
+      item.id === Number(taskId)
+  );
+
+  if (task) {
+
+    setSelectedTask(task);
+
+    setSearchParams(
+      {},
+      { replace: true }
+    );
+
+  }
+
+}, [
+  tasks,
+  searchParams,
+  setSearchParams,
+]);
   // =====================================================
   // LOGOUT
   // =====================================================
