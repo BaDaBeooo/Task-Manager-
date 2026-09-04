@@ -3,7 +3,14 @@ import { useEffect, useState } from "react";
 import api from "../services/api";
 
 
+/*
+ * =========================================================
+ * LABEL HELPERS
+ * =========================================================
+ */
+
 function getStatusLabel(status) {
+
   const labels = {
     todo: "Chưa làm",
     in_progress: "Đang làm",
@@ -11,10 +18,12 @@ function getStatusLabel(status) {
   };
 
   return labels[status] || status;
+
 }
 
 
 function getPriorityLabel(priority) {
+
   const labels = {
     low: "Thấp",
     medium: "Trung bình",
@@ -22,10 +31,18 @@ function getPriorityLabel(priority) {
   };
 
   return labels[priority] || priority;
+
 }
 
 
+/*
+ * =========================================================
+ * DATE HELPERS
+ * =========================================================
+ */
+
 function formatDeadline(deadline) {
+
   if (!deadline) {
     return "Không có deadline";
   }
@@ -38,9 +55,12 @@ function formatDeadline(deadline) {
       year: "numeric",
     }
   );
+
 }
 
+
 function formatActivityTime(datetime) {
+
   if (!datetime) {
     return "";
   }
@@ -61,9 +81,12 @@ function formatActivityTime(datetime) {
       minute: "2-digit",
     }
   );
+
 }
 
+
 function toDateInputValue(deadline) {
+
   if (!deadline) {
     return "";
   }
@@ -75,8 +98,82 @@ function toDateInputValue(deadline) {
   }
 
   return date.toISOString().split("T")[0];
+
 }
 
+
+/*
+ * =========================================================
+ * ACTIVITY DISPLAY
+ * =========================================================
+ */
+
+function getActivityInfo(action) {
+
+  const activities = {
+
+    task_created: {
+      icon: "＋",
+      text: "đã tạo task",
+    },
+
+    assigned: {
+      icon: "👤",
+      text: "đã giao người phụ trách",
+    },
+
+    reassigned: {
+      icon: "👤",
+      text: "đã thay đổi người phụ trách",
+    },
+
+    unassigned: {
+      icon: "↩",
+      text: "đã bỏ người phụ trách",
+    },
+
+    status_changed: {
+      icon: "🔄",
+      text: "đã thay đổi trạng thái",
+    },
+
+    priority_changed: {
+      icon: "🚩",
+      text: "đã thay đổi ưu tiên",
+    },
+
+    deadline_changed: {
+      icon: "📅",
+      text: "đã thay đổi deadline",
+    },
+
+    completed: {
+      icon: "✓",
+      text: "đã hoàn thành",
+    },
+
+    uncompleted: {
+      icon: "↩",
+      text: "đã bỏ hoàn thành",
+    },
+
+  };
+
+  return (
+    activities[action] || {
+      icon: "•",
+      text: "đã cập nhật task",
+    }
+  );
+
+}
+
+
+/*
+ * =========================================================
+ * COMPONENT
+ * =========================================================
+ */
 
 function TaskDetail({
   task,
@@ -111,56 +208,117 @@ function TaskDetail({
     useState(false);
 
 
+  /*
+   * =======================================================
+   * FORM DATA
+   * =======================================================
+   */
+
   const [formData, setFormData] = useState({
-    title: task.title || "",
-    description: task.description || "",
-    assignee_id: task.assignee_id
-      ? String(task.assignee_id)
-      : "",
-    status: task.status || "todo",
-    priority: task.priority || "medium",
-    deadline: toDateInputValue(
-      task.deadline
-    ),
+
+    title:
+      task.title || "",
+
+    description:
+      task.description || "",
+
+    assignee_id:
+      task.assignee_id
+        ? String(task.assignee_id)
+        : "",
+
+    status:
+      task.status || "todo",
+
+    priority:
+      task.priority || "medium",
+
+    deadline:
+      toDateInputValue(
+        task.deadline
+      ),
+
   });
 
 
+  /*
+   * =======================================================
+   * SUPPORTERS
+   * =======================================================
+   */
+
   const [supporterIds, setSupporterIds] =
     useState(
+
       (task.supporters || []).map(
         (supporter) =>
-          Number(supporter.user_id)
+          Number(
+            supporter.user_id
+          )
       )
+
     );
 
+
+  /*
+   * =======================================================
+   * SYNC TASK FROM PARENT
+   * =======================================================
+   */
 
   useEffect(() => {
 
     setCurrentTask(task);
 
+
     setFormData({
-      title: task.title || "",
-      description: task.description || "",
-      assignee_id: task.assignee_id
-        ? String(task.assignee_id)
-        : "",
-      status: task.status || "todo",
-      priority: task.priority || "medium",
-      deadline: toDateInputValue(
-        task.deadline
-      ),
+
+      title:
+        task.title || "",
+
+      description:
+        task.description || "",
+
+      assignee_id:
+        task.assignee_id
+          ? String(
+              task.assignee_id
+            )
+          : "",
+
+      status:
+        task.status || "todo",
+
+      priority:
+        task.priority || "medium",
+
+      deadline:
+        toDateInputValue(
+          task.deadline
+        ),
+
     });
 
 
     setSupporterIds(
+
       (task.supporters || []).map(
         (supporter) =>
-          Number(supporter.user_id)
+          Number(
+            supporter.user_id
+          )
       )
+
     );
 
   }, [task]);
 
+
+  /*
+   * =======================================================
+   * LOAD TASK DETAIL
+   * =======================================================
+   */
 
   const loadTask = async () => {
 
@@ -182,17 +340,26 @@ function TaskDetail({
 
 
       setSupporterIds(
-        (response.data.supporters || []).map(
+
+        (
+          response.data.supporters ||
+          []
+        ).map(
           (supporter) =>
-            Number(supporter.user_id)
+            Number(
+              supporter.user_id
+            )
         )
+
       );
 
 
       if (onUpdated) {
+
         onUpdated(
           response.data
         );
+
       }
 
 
@@ -217,6 +384,12 @@ function TaskDetail({
 
   };
 
+
+  /*
+   * =======================================================
+   * SUBTASK CHECK / UNCHECK
+   * =======================================================
+   */
 
   const handleSubtaskChange = async (
     subtask,
@@ -266,6 +439,12 @@ function TaskDetail({
   };
 
 
+  /*
+   * =======================================================
+   * FORM CHANGE
+   * =======================================================
+   */
+
   const handleFormChange = (
     event
   ) => {
@@ -286,12 +465,19 @@ function TaskDetail({
   };
 
 
+  /*
+   * =======================================================
+   * START EDIT
+   * =======================================================
+   */
+
   const handleStartEdit = () => {
 
     setError("");
 
 
     setFormData({
+
       title:
         currentTask.title || "",
 
@@ -315,16 +501,19 @@ function TaskDetail({
         toDateInputValue(
           currentTask.deadline
         ),
+
     });
 
 
     setSupporterIds(
+
       (currentTask.supporters || []).map(
         (supporter) =>
           Number(
             supporter.user_id
           )
       )
+
     );
 
 
@@ -333,14 +522,25 @@ function TaskDetail({
   };
 
 
+  /*
+   * =======================================================
+   * CANCEL EDIT
+   * =======================================================
+   */
+
   const handleCancelEdit = () => {
 
     setError("");
-
     setIsEditing(false);
 
   };
 
+
+  /*
+   * =======================================================
+   * SUPPORTER TOGGLE
+   * =======================================================
+   */
 
   const toggleSupporter = (
     userId
@@ -349,6 +549,11 @@ function TaskDetail({
     const normalizedId =
       Number(userId);
 
+
+    /*
+     * Người phụ trách chính
+     * không được đồng thời là supporter.
+     */
 
     if (
       formData.assignee_id &&
@@ -390,6 +595,12 @@ function TaskDetail({
   };
 
 
+  /*
+   * =======================================================
+   * ASSIGNEE CHANGE
+   * =======================================================
+   */
+
   const handleAssigneeChange = (
     event
   ) => {
@@ -405,6 +616,11 @@ function TaskDetail({
       })
     );
 
+
+    /*
+     * Nếu người phụ trách chính
+     * cũng đang là supporter thì remove.
+     */
 
     if (!value) {
       return;
@@ -422,6 +638,12 @@ function TaskDetail({
 
   };
 
+
+  /*
+   * =======================================================
+   * SAVE EDIT
+   * =======================================================
+   */
 
   const handleSaveEdit = async () => {
 
@@ -443,7 +665,9 @@ function TaskDetail({
 
 
       /*
+       * ---------------------------------------------------
        * 1. UPDATE TASK
+       * ---------------------------------------------------
        */
 
       const payload = {
@@ -483,7 +707,9 @@ function TaskDetail({
 
 
       /*
+       * ---------------------------------------------------
        * 2. GET CURRENT SUPPORTERS
+       * ---------------------------------------------------
        */
 
       const detailResponse =
@@ -494,8 +720,8 @@ function TaskDetail({
 
       const existingSupporterIds =
         (
-          detailResponse.data
-            .supporters || []
+          detailResponse.data.supporters ||
+          []
         ).map(
           (supporter) =>
             Number(
@@ -505,7 +731,9 @@ function TaskDetail({
 
 
       /*
-       * 3. CALCULATE CHANGES
+       * ---------------------------------------------------
+       * 3. CALCULATE SUPPORTER CHANGES
+       * ---------------------------------------------------
        */
 
       const supportersToAdd =
@@ -527,7 +755,9 @@ function TaskDetail({
 
 
       /*
-       * 4. ADD NEW SUPPORTERS
+       * ---------------------------------------------------
+       * 4. ADD SUPPORTERS
+       * ---------------------------------------------------
        */
 
       if (
@@ -535,19 +765,23 @@ function TaskDetail({
       ) {
 
         await Promise.all(
+
           supportersToAdd.map(
             (userId) =>
               api.post(
                 `/tasks/${currentTask.id}/supporters/${userId}`
               )
           )
+
         );
 
       }
 
 
       /*
-       * 5. REMOVE OLD SUPPORTERS
+       * ---------------------------------------------------
+       * 5. REMOVE SUPPORTERS
+       * ---------------------------------------------------
        */
 
       if (
@@ -555,19 +789,23 @@ function TaskDetail({
       ) {
 
         await Promise.all(
+
           supportersToRemove.map(
             (userId) =>
               api.delete(
                 `/tasks/${currentTask.id}/supporters/${userId}`
               )
           )
+
         );
 
       }
 
 
       /*
+       * ---------------------------------------------------
        * 6. LOAD FINAL TASK
+       * ---------------------------------------------------
        */
 
       const finalResponse =
@@ -582,15 +820,17 @@ function TaskDetail({
 
 
       setSupporterIds(
+
         (
-          finalResponse.data
-            .supporters || []
+          finalResponse.data.supporters ||
+          []
         ).map(
           (supporter) =>
             Number(
               supporter.user_id
             )
         )
+
       );
 
 
@@ -628,6 +868,12 @@ function TaskDetail({
 
   };
 
+
+  /*
+   * =======================================================
+   * DELETE TASK
+   * =======================================================
+   */
 
   const handleDelete = async () => {
 
@@ -676,6 +922,12 @@ function TaskDetail({
   };
 
 
+  /*
+   * =======================================================
+   * CALCULATED DATA
+   * =======================================================
+   */
+
   const completedSubtasks =
     currentTask.subtasks?.filter(
       (subtask) =>
@@ -690,11 +942,12 @@ function TaskDetail({
   const assignee =
     users.find(
       (user) =>
-        user.id ===
-        currentTask.assignee_id
+        Number(user.id) ===
+        Number(
+          currentTask.assignee_id
+        )
     );
-  const activities =
-        currentTask.activities || [];
+
 
   const assigneeName =
     assignee?.full_name ||
@@ -703,9 +956,14 @@ function TaskDetail({
 
 
   const currentSupporterIds =
-    (currentTask.supporters || []).map(
+    (
+      currentTask.supporters ||
+      []
+    ).map(
       (supporter) =>
-        Number(supporter.user_id)
+        Number(
+          supporter.user_id
+        )
     );
 
 
@@ -729,6 +987,20 @@ function TaskDetail({
     );
 
 
+  /*
+   * ACTIVITY LOG
+   */
+
+  const activities =
+    currentTask.activities || [];
+
+
+  /*
+   * =======================================================
+   * RENDER
+   * =======================================================
+   */
+
   return (
 
     <div
@@ -744,7 +1016,9 @@ function TaskDetail({
       >
 
 
-        {/* HEADER */}
+        {/* =================================================
+            HEADER
+            ================================================= */}
 
         <div className="task-detail-header">
 
@@ -753,6 +1027,7 @@ function TaskDetail({
             {!isEditing ? (
 
               <>
+
                 <h2>
                   {currentTask.title}
                 </h2>
@@ -764,11 +1039,13 @@ function TaskDetail({
                     currentTask.status
                   )}
                 </span>
+
               </>
 
             ) : (
 
               <>
+
                 <h2>
                   Chỉnh sửa công việc
                 </h2>
@@ -776,6 +1053,7 @@ function TaskDetail({
                 <span className="status-badge">
                   Đang chỉnh sửa
                 </span>
+
               </>
 
             )}
@@ -794,10 +1072,14 @@ function TaskDetail({
         </div>
 
 
-        {/* CONTENT */}
+        {/* =================================================
+            CONTENT
+            ================================================= */}
 
         <div className="task-detail-content">
 
+
+          {/* ERROR */}
 
           {error && (
 
@@ -807,6 +1089,10 @@ function TaskDetail({
 
           )}
 
+
+          {/* =================================================
+              EDIT MODE
+              ================================================= */}
 
           {isEditing ? (
 
@@ -1018,7 +1304,7 @@ function TaskDetail({
               </div>
 
 
-              {/* OTHER FIELDS */}
+              {/* STATUS / PRIORITY */}
 
               <div className="task-edit-grid">
 
@@ -1115,6 +1401,10 @@ function TaskDetail({
 
           ) : (
 
+            /* =================================================
+               VIEW MODE
+               ================================================= */
+
             <>
 
 
@@ -1199,10 +1489,11 @@ function TaskDetail({
 
                 </div>
 
+
               </div>
 
 
-              {/* SUPPORTERS VIEW */}
+              {/* SUPPORTERS */}
 
               <div className="task-detail-supporters">
 
@@ -1301,9 +1592,12 @@ function TaskDetail({
 
 
                 <div className="subtask-count">
+
                   {completedSubtasks}/
                   {totalSubtasks}
-                  {" "}công việc hoàn thành
+                  {" "}
+                  công việc hoàn thành
+
                 </div>
 
               </div>
@@ -1370,6 +1664,7 @@ function TaskDetail({
                             }
                           />
 
+
                           <span className="subtask-title">
                             {subtask.title}
                           </span>
@@ -1390,118 +1685,192 @@ function TaskDetail({
 
           )}
 
-        </div>
-{/* ACTIVITY LOG */}
 
-<div className="task-activity-section">
+          {/* =================================================
+              ACTIVITY LOG
+              ================================================= */}
 
-  <h3>
-    Lịch sử hoạt động
-  </h3>
+          <div className="task-activity-section">
 
-  {activities.length === 0 ? (
+            <h3>
+              Lịch sử hoạt động
+            </h3>
 
-    <div className="activity-empty">
-      Chưa có hoạt động nào.
-    </div>
 
-  ) : (
+            {activities.length === 0 ? (
 
-    <div className="activity-list">
-
-      {[...activities]
-        .sort(
-          (a, b) =>
-            new Date(b.created_at) -
-            new Date(a.created_at)
-        )
-        .map((activity) => {
-
-          const activityUser =
-            users.find(
-              (user) =>
-                user.id ===
-                activity.user_id
-            );
-
-          const activitySubtask =
-            currentTask.subtasks?.find(
-              (subtask) =>
-                subtask.id ===
-                activity.subtask_id
-            );
-
-          const userName =
-            activityUser?.full_name ||
-            activityUser?.username ||
-            `User #${activity.user_id}`;
-
-          const subtaskTitle =
-            activitySubtask?.title ||
-            "công việc";
-
-          const isCompleted =
-            activity.action ===
-            "completed";
-
-          return (
-
-            <div
-              key={activity.id}
-              className="activity-item"
-            >
-
-              <div className="activity-icon">
-
-                {isCompleted
-                  ? "✓"
-                  : "↩"}
-
+              <div className="activity-empty">
+                Chưa có hoạt động nào.
               </div>
 
+            ) : (
 
-              <div className="activity-content">
+              <div className="activity-list">
 
-                <div className="activity-text">
+                {[...activities]
+                  .sort(
+                    (a, b) =>
+                      new Date(
+                        b.created_at
+                      ) -
+                      new Date(
+                        a.created_at
+                      )
+                  )
+                  .map(
+                    (activity) => {
 
-                  <strong>
-                    {userName}
-                  </strong>
+                      /*
+                       * FIND USER
+                       */
 
-                  {isCompleted
-                    ? " đã hoàn thành "
-                    : " đã bỏ hoàn thành "}
+                      const activityUser =
+                        users.find(
+                          (user) =>
+                            Number(
+                              user.id
+                            ) ===
+                            Number(
+                              activity.user_id
+                            )
+                        );
 
-                  <strong>
-                    "{subtaskTitle}"
-                  </strong>
 
-                </div>
+                      /*
+                       * FIND SUBTASK
+                       */
+
+                      const activitySubtask =
+                        currentTask.subtasks?.find(
+                          (subtask) =>
+                            Number(
+                              subtask.id
+                            ) ===
+                            Number(
+                              activity.subtask_id
+                            )
+                        );
 
 
-                <div className="activity-time">
+                      /*
+                       * USER NAME
+                       */
 
-                  {formatActivityTime(
-                    activity.created_at
+                      const userName =
+                        activityUser?.full_name ||
+                        activityUser?.username ||
+                        `User #${activity.user_id}`;
+
+
+                      /*
+                       * SUBTASK TITLE
+                       */
+
+                      const subtaskTitle =
+                        activitySubtask?.title ||
+                        "công việc";
+
+
+                      /*
+                       * ACTIVITY DISPLAY
+                       */
+
+                      const activityInfo =
+                        getActivityInfo(
+                          activity.action
+                        );
+
+
+                      /*
+                       * SUBTASK ACTIVITY
+                       */
+
+                      const isSubtaskActivity =
+                        activity.action ===
+                          "completed" ||
+                        activity.action ===
+                          "uncompleted";
+
+
+                      return (
+
+                        <div
+                          key={activity.id}
+                          className="activity-item"
+                        >
+
+
+                          <div className="activity-icon">
+
+                            {activityInfo.icon}
+
+                          </div>
+
+
+                          <div className="activity-content">
+
+
+                            <div className="activity-text">
+
+                              <strong>
+                                {userName}
+                              </strong>
+
+
+                              {" "}
+
+
+                              {activityInfo.text}
+
+
+                              {isSubtaskActivity && (
+
+                                <>
+
+                                  {" "}
+
+                                  <strong>
+                                    "{subtaskTitle}"
+                                  </strong>
+
+                                </>
+
+                              )}
+
+                            </div>
+
+
+                            <div className="activity-time">
+
+                              {formatActivityTime(
+                                activity.created_at
+                              )}
+
+                            </div>
+
+
+                          </div>
+
+                        </div>
+
+                      );
+
+                    }
                   )}
 
-                </div>
-
               </div>
 
-            </div>
+            )}
 
-          );
+          </div>
 
-        })}
 
-    </div>
+        </div>
 
-  )}
 
-</div>
-
-        {/* FOOTER */}
+        {/* =================================================
+            FOOTER
+            ================================================= */}
 
         <div className="task-detail-footer">
 
@@ -1518,7 +1887,9 @@ function TaskDetail({
                 disabled={saving}
                 type="button"
               >
-                <span>🚫 Hủy</span>
+                <span>
+                  🚫 Hủy
+                </span>
               </button>
 
 
@@ -1530,9 +1901,11 @@ function TaskDetail({
                 disabled={saving}
                 type="button"
               >
+
                 {saving
                   ? "Đang lưu..."
                   : "Lưu thay đổi"}
+
               </button>
 
             </>
@@ -1548,18 +1921,24 @@ function TaskDetail({
                 }
                 type="button"
               >
-                <span>✏️ Chỉnh sửa</span>
+                <span>
+                  ✏️ Chỉnh sửa
+                </span>
               </button>
 
 
               <button
                 className="danger-button"
                 onClick={() =>
-                  setShowDeleteConfirm(true)
+                  setShowDeleteConfirm(
+                    true
+                  )
                 }
                 type="button"
               >
-                <span>🗑️ Xóa</span>
+                <span>
+                  🗑️ Xóa
+                </span>
               </button>
 
 
@@ -1568,7 +1947,9 @@ function TaskDetail({
                 onClick={onClose}
                 type="button"
               >
-                <span>Đóng</span>
+                <span>
+                  Đóng
+                </span>
               </button>
 
             </>
@@ -1578,14 +1959,18 @@ function TaskDetail({
         </div>
 
 
-        {/* DELETE CONFIRMATION */}
+        {/* =================================================
+            DELETE CONFIRMATION
+            ================================================= */}
 
         {showDeleteConfirm && (
 
           <div
             className="delete-confirm-overlay"
             onClick={() =>
-              setShowDeleteConfirm(false)
+              setShowDeleteConfirm(
+                false
+              )
             }
           >
 
@@ -1600,18 +1985,25 @@ function TaskDetail({
                 🗑️
               </div>
 
+
               <h3>
                 Xóa công việc?
               </h3>
 
+
               <p>
+
                 Bạn có chắc chắn muốn xóa
+
                 <strong>
                   {" "}
                   {currentTask.title}
                 </strong>
+
                 ?
+
               </p>
+
 
               <p>
                 Hành động này không thể hoàn tác.
@@ -1620,10 +2012,13 @@ function TaskDetail({
 
               <div className="delete-confirm-actions">
 
+
                 <button
                   className="secondary-button"
                   onClick={() =>
-                    setShowDeleteConfirm(false)
+                    setShowDeleteConfirm(
+                      false
+                    )
                   }
                   disabled={deleting}
                   type="button"
@@ -1638,10 +2033,13 @@ function TaskDetail({
                   disabled={deleting}
                   type="button"
                 >
+
                   {deleting
                     ? "Đang xóa..."
                     : "Xóa công việc"}
+
                 </button>
+
 
               </div>
 
@@ -1651,10 +2049,13 @@ function TaskDetail({
 
         )}
 
+
       </div>
 
     </div>
+
   );
+
 }
 
 

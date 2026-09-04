@@ -26,7 +26,12 @@ function Settings() {
   const [error, setError] =
     useState("");
 
-  const [showForm, setShowForm] =
+
+  // =====================================================
+  // ROLE FORM
+  // =====================================================
+
+  const [showRoleForm, setShowRoleForm] =
     useState(false);
 
   const [editingRole, setEditingRole] =
@@ -38,15 +43,43 @@ function Settings() {
   const [roleCode, setRoleCode] =
     useState("");
 
-  const [saving, setSaving] =
+  const [savingRole, setSavingRole] =
     useState(false);
+
+
+  // =====================================================
+  // USER FORM
+  // =====================================================
+
+  const [showUserForm, setShowUserForm] =
+    useState(false);
+
+  const [userFullName, setUserFullName] =
+    useState("");
+
+  const [userUsername, setUserUsername] =
+    useState("");
+
+  const [userPassword, setUserPassword] =
+    useState("");
+
+  const [userRoleId, setUserRoleId] =
+    useState("");
+
+  const [savingUser, setSavingUser] =
+    useState(false);
+
+
+  // =====================================================
+  // USER ACTION
+  // =====================================================
 
   const [changingUserId, setChangingUserId] =
     useState(null);
 
 
   // =====================================================
-  // ADMIN CHECK
+  // ADMIN
   // =====================================================
 
   const isAdmin =
@@ -113,6 +146,7 @@ function Settings() {
         window.location.href = "/";
 
         return;
+
       }
 
 
@@ -154,10 +188,10 @@ function Settings() {
 
 
   // =====================================================
-  // CREATE ROLE
+  // ROLE CREATE
   // =====================================================
 
-  const openCreateForm = () => {
+  const openCreateRoleForm = () => {
 
     if (!isAdmin) {
       return;
@@ -171,16 +205,18 @@ function Settings() {
 
     setError("");
 
-    setShowForm(true);
+    setShowRoleForm(true);
 
   };
 
 
   // =====================================================
-  // EDIT ROLE
+  // ROLE EDIT
   // =====================================================
 
-  const openEditForm = (role) => {
+  const openEditRoleForm = (
+    role
+  ) => {
 
     if (!isAdmin) {
       return;
@@ -198,7 +234,7 @@ function Settings() {
 
     setError("");
 
-    setShowForm(true);
+    setShowRoleForm(true);
 
   };
 
@@ -207,13 +243,13 @@ function Settings() {
   // CLOSE ROLE FORM
   // =====================================================
 
-  const closeForm = () => {
+  const closeRoleForm = () => {
 
-    if (saving) {
+    if (savingRole) {
       return;
     }
 
-    setShowForm(false);
+    setShowRoleForm(false);
 
     setEditingRole(null);
 
@@ -264,7 +300,7 @@ function Settings() {
 
     try {
 
-      setSaving(true);
+      setSavingRole(true);
 
       setError("");
 
@@ -304,7 +340,7 @@ function Settings() {
 
       await loadData();
 
-      closeForm();
+      closeRoleForm();
 
 
     } catch (error) {
@@ -323,7 +359,7 @@ function Settings() {
 
     } finally {
 
-      setSaving(false);
+      setSavingRole(false);
 
     }
 
@@ -388,6 +424,185 @@ function Settings() {
         error.response?.data?.detail ||
         "Không thể tắt vai trò."
       );
+
+    }
+
+  };
+
+
+  // =====================================================
+  // OPEN CREATE USER
+  // =====================================================
+
+  const openCreateUserForm = () => {
+
+    if (!isAdmin) {
+      return;
+    }
+
+    const firstRole =
+      roles.find(
+        (role) =>
+          role.is_active &&
+          role.code !== "admin"
+      );
+
+
+    setUserFullName("");
+
+    setUserUsername("");
+
+    setUserPassword("");
+
+    setUserRoleId(
+      firstRole
+        ? String(firstRole.id)
+        : ""
+    );
+
+    setError("");
+
+    setShowUserForm(true);
+
+  };
+
+
+  // =====================================================
+  // CLOSE USER FORM
+  // =====================================================
+
+  const closeUserForm = () => {
+
+    if (savingUser) {
+      return;
+    }
+
+    setShowUserForm(false);
+
+    setUserFullName("");
+
+    setUserUsername("");
+
+    setUserPassword("");
+
+    setUserRoleId("");
+
+  };
+
+
+  // =====================================================
+  // CREATE USER
+  // =====================================================
+
+  const handleCreateUser = async (
+    event
+  ) => {
+
+    event.preventDefault();
+
+
+    if (!isAdmin) {
+      return;
+    }
+
+
+    if (!userFullName.trim()) {
+
+      setError(
+        "Vui lòng nhập họ tên."
+      );
+
+      return;
+
+    }
+
+
+    if (!userUsername.trim()) {
+
+      setError(
+        "Vui lòng nhập username."
+      );
+
+      return;
+
+    }
+
+
+    if (userPassword.length < 6) {
+
+      setError(
+        "Mật khẩu phải có ít nhất 6 ký tự."
+      );
+
+      return;
+
+    }
+
+
+    if (!userRoleId) {
+
+      setError(
+        "Vui lòng chọn vai trò."
+      );
+
+      return;
+
+    }
+
+
+    try {
+
+      setSavingUser(true);
+
+      setError("");
+
+
+      await api.post(
+        "/users",
+        {
+          full_name:
+            userFullName.trim(),
+
+          username:
+            userUsername.trim(),
+
+          password:
+            userPassword,
+
+          role_id:
+            Number(userRoleId),
+        }
+      );
+
+
+      await loadData();
+
+      closeUserForm();
+
+
+      window.alert(
+        "Tạo tài khoản thành công.\n\n" +
+        "User sẽ phải đổi mật khẩu khi đăng nhập lần đầu."
+      );
+
+
+    } catch (error) {
+
+      console.error(
+        "Create user error:",
+        error
+      );
+
+
+      setError(
+        error.response?.data?.detail ||
+        "Không thể tạo tài khoản."
+      );
+
+
+    } finally {
+
+      setSavingUser(false);
 
     }
 
@@ -473,7 +688,261 @@ function Settings() {
 
 
   // =====================================================
-  // FIND ROLE ID
+  // RESET PASSWORD
+  // =====================================================
+
+  const handleResetPassword = async (
+    user
+  ) => {
+
+    if (!isAdmin) {
+      return;
+    }
+
+
+    const newPassword =
+      window.prompt(
+        `Nhập mật khẩu mới cho ${user.full_name}:\n\n` +
+        "User sẽ phải đổi lại mật khẩu sau khi đăng nhập."
+      );
+
+
+    if (
+      newPassword === null
+    ) {
+
+      return;
+
+    }
+
+
+    if (
+      newPassword.length < 6
+    ) {
+
+      setError(
+        "Mật khẩu phải có ít nhất 6 ký tự."
+      );
+
+      return;
+
+    }
+
+
+    try {
+
+      setChangingUserId(
+        user.id
+      );
+
+      setError("");
+
+
+      await api.post(
+        `/users/${user.id}/reset-password`,
+        {
+          new_password:
+            newPassword,
+        }
+      );
+
+
+      setUsers(
+        (currentUsers) =>
+          currentUsers.map(
+            (item) =>
+              item.id === user.id
+                ? {
+                    ...item,
+                    must_change_password:
+                      true,
+                  }
+                : item
+          )
+      );
+
+
+      window.alert(
+        "Đã reset mật khẩu.\n\n" +
+        "User sẽ phải đổi mật khẩu khi đăng nhập."
+      );
+
+
+    } catch (error) {
+
+      console.error(
+        "Reset password error:",
+        error
+      );
+
+
+      setError(
+        error.response?.data?.detail ||
+        "Không thể reset mật khẩu."
+      );
+
+
+    } finally {
+
+      setChangingUserId(
+        null
+      );
+
+    }
+
+  };
+
+
+  // =====================================================
+  // LOCK USER
+  // =====================================================
+
+  const handleDeactivateUser = async (
+    user
+  ) => {
+
+    if (!isAdmin) {
+      return;
+    }
+
+
+    if (
+      user.id === currentUser?.id
+    ) {
+
+      return;
+
+    }
+
+
+    const confirmed =
+      window.confirm(
+        `Khóa tài khoản "${user.full_name}"?`
+      );
+
+
+    if (!confirmed) {
+      return;
+    }
+
+
+    try {
+
+      setChangingUserId(
+        user.id
+      );
+
+      setError("");
+
+
+      const response =
+        await api.post(
+          `/users/${user.id}/deactivate`
+        );
+
+
+      setUsers(
+        (currentUsers) =>
+          currentUsers.map(
+            (item) =>
+              item.id === user.id
+                ? response.data
+                : item
+          )
+      );
+
+
+    } catch (error) {
+
+      console.error(
+        "Deactivate user error:",
+        error
+      );
+
+
+      setError(
+        error.response?.data?.detail ||
+        "Không thể khóa tài khoản."
+      );
+
+
+    } finally {
+
+      setChangingUserId(
+        null
+      );
+
+    }
+
+  };
+
+
+  // =====================================================
+  // UNLOCK USER
+  // =====================================================
+
+  const handleActivateUser = async (
+    user
+  ) => {
+
+    if (!isAdmin) {
+      return;
+    }
+
+
+    try {
+
+      setChangingUserId(
+        user.id
+      );
+
+      setError("");
+
+
+      const response =
+        await api.post(
+          `/users/${user.id}/activate`
+        );
+
+
+      setUsers(
+        (currentUsers) =>
+          currentUsers.map(
+            (item) =>
+              item.id === user.id
+                ? response.data
+                : item
+          )
+      );
+
+
+    } catch (error) {
+
+      console.error(
+        "Activate user error:",
+        error
+      );
+
+
+      setError(
+        error.response?.data?.detail ||
+        "Không thể mở khóa tài khoản."
+      );
+
+
+    } finally {
+
+      setChangingUserId(
+        null
+      );
+
+    }
+
+  };
+
+
+  // =====================================================
+  // FIND ROLE
   // =====================================================
 
   const getRoleIdByName = (
@@ -542,18 +1011,10 @@ function Settings() {
 
     <div className="dashboard-layout">
 
-
-      {/* SIDEBAR */}
-
       <Sidebar />
 
 
-      {/* MAIN */}
-
       <main className="dashboard-main">
-
-
-        {/* TOPBAR */}
 
         <Topbar
           user={currentUser}
@@ -562,9 +1023,6 @@ function Settings() {
 
 
         <div className="dashboard-content">
-
-
-          {/* HEADER */}
 
           <div className="welcome-section">
 
@@ -582,8 +1040,6 @@ function Settings() {
 
           </div>
 
-
-          {/* ERROR */}
 
           {error && (
 
@@ -622,7 +1078,7 @@ function Settings() {
                   className="primary-button"
                   type="button"
                   onClick={
-                    openCreateForm
+                    openCreateRoleForm
                   }
                 >
                   + Thêm vai trò
@@ -701,7 +1157,7 @@ function Settings() {
                             className="secondary-button"
                             type="button"
                             onClick={() =>
-                              openEditForm(
+                              openEditRoleForm(
                                 role
                               )
                             }
@@ -764,11 +1220,26 @@ function Settings() {
                 </h2>
 
                 <p>
-                  Quản lý người dùng và
-                  vai trò của họ
+                  Quản lý tài khoản và
+                  quyền truy cập hệ thống
                 </p>
 
               </div>
+
+
+              {isAdmin && (
+
+                <button
+                  className="primary-button"
+                  type="button"
+                  onClick={
+                    openCreateUserForm
+                  }
+                >
+                  + Tạo tài khoản
+                </button>
+
+              )}
 
             </div>
 
@@ -789,22 +1260,59 @@ function Settings() {
                     user.id;
 
 
+                  const isChanging =
+                    changingUserId ===
+                    user.id;
+
+
                   return (
 
                     <div
                       key={user.id}
                       className="settings-user-row"
+                      style={{
+                        opacity:
+                          user.is_active
+                            ? 1
+                            : 0.65,
+                      }}
                     >
-
 
                       {/* USER */}
 
-                      <div className="settings-user-info">
+                      <div
+                        className="settings-user-info"
+                        style={{
+                          minWidth: "220px",
+                        }}
+                      >
 
                         <UserAvatar
                           user={user}
                           size="medium"
                         />
+
+                        <div
+                          style={{
+                            marginLeft: "10px",
+                          }}
+                        >
+
+                          <strong>
+                            {user.full_name}
+                          </strong>
+
+                          <div
+                            style={{
+                              color: "#6b7280",
+                              fontSize: "12px",
+                              marginTop: "3px",
+                            }}
+                          >
+                            @{user.username}
+                          </div>
+
+                        </div>
 
                       </div>
 
@@ -824,9 +1332,9 @@ function Settings() {
                           }
                           disabled={
                             !isAdmin ||
-                            changingUserId ===
-                              user.id ||
-                            isCurrentUser
+                            isChanging ||
+                            isCurrentUser ||
+                            !user.is_active
                           }
                           onChange={(
                             event
@@ -862,28 +1370,121 @@ function Settings() {
 
                         </select>
 
+                      </div>
 
-                        {!isAdmin && (
 
-                          <small>
-                            Chỉ Admin có quyền
-                            thay đổi vai trò
-                          </small>
+                      {/* STATUS */}
+
+                      <div
+                        style={{
+                          minWidth: "120px",
+                        }}
+                      >
+
+                        <div
+                          style={{
+                            fontSize: "11px",
+                            fontWeight: "600",
+                            color:
+                              user.is_active
+                                ? "#15803d"
+                                : "#b91c1c",
+                          }}
+                        >
+
+                          {user.is_active
+                            ? "● Hoạt động"
+                            : "● Đã khóa"}
+
+                        </div>
+
+
+                        {user.must_change_password && (
+
+                          <div
+                            style={{
+                              marginTop: "5px",
+                              fontSize: "10px",
+                              color: "#b45309",
+                            }}
+                          >
+                            🔐 Chờ đổi mật khẩu
+                          </div>
+
+                        )}
+
+                      </div>
+
+
+                      {/* ACTIONS */}
+
+                      <div
+                        style={{
+                          display: "flex",
+                          gap: "7px",
+                          flexWrap: "wrap",
+                          justifyContent: "flex-end",
+                        }}
+                      >
+
+                        {isAdmin && !isCurrentUser && (
+
+                          <button
+                            className="secondary-button"
+                            type="button"
+                            disabled={isChanging}
+                            onClick={() =>
+                              handleResetPassword(
+                                user
+                              )
+                            }
+                          >
+                            Reset mật khẩu
+                          </button>
 
                         )}
 
 
                         {isAdmin &&
-                          isCurrentUser && (
+                          !isCurrentUser &&
+                          user.is_active && (
 
-                            <small>
-                              Tài khoản hiện tại
-                            </small>
+                            <button
+                              className="danger-button"
+                              type="button"
+                              disabled={isChanging}
+                              onClick={() =>
+                                handleDeactivateUser(
+                                  user
+                                )
+                              }
+                            >
+                              Khóa
+                            </button>
+
+                          )}
+
+
+                        {isAdmin &&
+                          !isCurrentUser &&
+                          !user.is_active && (
+
+                            <button
+                              className="primary-button"
+                              type="button"
+                              disabled={isChanging}
+                              onClick={() =>
+                                handleActivateUser(
+                                  user
+                                )
+                              }
+                            >
+                              Mở khóa
+                            </button>
 
                           )}
 
                       </div>
-
 
                     </div>
 
@@ -896,18 +1497,16 @@ function Settings() {
 
           </section>
 
-
         </div>
-
 
       </main>
 
 
-      {/* =================================================
+      {/* =====================================================
           ROLE MODAL
-      ================================================= */}
+      ===================================================== */}
 
-      {showForm && isAdmin && (
+      {showRoleForm && isAdmin && (
 
         <div
           className="settings-modal-overlay"
@@ -918,7 +1517,7 @@ function Settings() {
               event.currentTarget
             ) {
 
-              closeForm();
+              closeRoleForm();
 
             }
 
@@ -926,7 +1525,6 @@ function Settings() {
         >
 
           <div className="settings-modal">
-
 
             <div className="settings-modal-header">
 
@@ -951,7 +1549,7 @@ function Settings() {
                 className="modal-close"
                 type="button"
                 onClick={
-                  closeForm
+                  closeRoleForm
                 }
               >
                 ×
@@ -1022,10 +1620,10 @@ function Settings() {
                   type="button"
                   className="secondary-button"
                   onClick={
-                    closeForm
+                    closeRoleForm
                   }
                   disabled={
-                    saving
+                    savingRole
                   }
                 >
                   Hủy
@@ -1036,14 +1634,376 @@ function Settings() {
                   type="submit"
                   className="primary-button"
                   disabled={
-                    saving
+                    savingRole
                   }
                 >
-                  {saving
+                  {savingRole
                     ? "Đang lưu..."
                     : editingRole
                       ? "Lưu thay đổi"
                       : "Tạo vai trò"}
+                </button>
+
+              </div>
+
+            </form>
+
+          </div>
+
+        </div>
+
+      )}
+
+
+      {/* =====================================================
+          CREATE USER MODAL
+      ===================================================== */}
+
+      {showUserForm && isAdmin && (
+
+        <div
+          onMouseDown={(event) => {
+
+            if (
+              event.target ===
+              event.currentTarget
+            ) {
+
+              closeUserForm();
+
+            }
+
+          }}
+          style={{
+            position: "fixed",
+            inset: 0,
+            background:
+              "rgba(15, 23, 42, 0.45)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000,
+            padding: "20px",
+          }}
+        >
+
+          <div
+            style={{
+              width: "100%",
+              maxWidth: "480px",
+              background: "#ffffff",
+              borderRadius: "14px",
+              boxShadow:
+                "0 20px 50px rgba(0,0,0,0.18)",
+              padding: "24px",
+            }}
+          >
+
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "flex-start",
+                marginBottom: "22px",
+              }}
+            >
+
+              <div>
+
+                <h2
+                  style={{
+                    margin: 0,
+                    fontSize: "20px",
+                  }}
+                >
+                  Tạo tài khoản
+                </h2>
+
+                <p
+                  style={{
+                    margin:
+                      "7px 0 0",
+                    color: "#6b7280",
+                    fontSize: "13px",
+                  }}
+                >
+                  Tạo tài khoản mới cho
+                  thành viên trong hệ thống
+                </p>
+
+              </div>
+
+
+              <button
+                type="button"
+                onClick={
+                  closeUserForm
+                }
+                disabled={
+                  savingUser
+                }
+                style={{
+                  border: "none",
+                  background: "transparent",
+                  fontSize: "25px",
+                  color: "#6b7280",
+                  cursor: "pointer",
+                }}
+              >
+                ×
+              </button>
+
+            </div>
+
+
+            <form
+              onSubmit={
+                handleCreateUser
+              }
+            >
+
+              <div
+                style={{
+                  marginBottom: "16px",
+                }}
+              >
+
+                <label
+                  style={{
+                    display: "block",
+                    marginBottom: "7px",
+                    fontSize: "13px",
+                    fontWeight: "600",
+                  }}
+                >
+                  Họ và tên
+                </label>
+
+                <input
+                  type="text"
+                  value={
+                    userFullName
+                  }
+                  onChange={(event) =>
+                    setUserFullName(
+                      event.target.value
+                    )
+                  }
+                  placeholder="Nguyễn Văn A"
+                  required
+                  style={{
+                    width: "100%",
+                    boxSizing: "border-box",
+                    padding: "11px 12px",
+                    border:
+                      "1px solid #d1d5db",
+                    borderRadius: "8px",
+                  }}
+                />
+
+              </div>
+
+
+              <div
+                style={{
+                  marginBottom: "16px",
+                }}
+              >
+
+                <label
+                  style={{
+                    display: "block",
+                    marginBottom: "7px",
+                    fontSize: "13px",
+                    fontWeight: "600",
+                  }}
+                >
+                  Username
+                </label>
+
+                <input
+                  type="text"
+                  value={
+                    userUsername
+                  }
+                  onChange={(event) =>
+                    setUserUsername(
+                      event.target.value
+                    )
+                  }
+                  placeholder="nguyena"
+                  autoComplete="off"
+                  required
+                  style={{
+                    width: "100%",
+                    boxSizing: "border-box",
+                    padding: "11px 12px",
+                    border:
+                      "1px solid #d1d5db",
+                    borderRadius: "8px",
+                  }}
+                />
+
+              </div>
+
+
+              <div
+                style={{
+                  marginBottom: "16px",
+                }}
+              >
+
+                <label
+                  style={{
+                    display: "block",
+                    marginBottom: "7px",
+                    fontSize: "13px",
+                    fontWeight: "600",
+                  }}
+                >
+                  Mật khẩu tạm thời
+                </label>
+
+                <input
+                  type="password"
+                  value={
+                    userPassword
+                  }
+                  onChange={(event) =>
+                    setUserPassword(
+                      event.target.value
+                    )
+                  }
+                  placeholder="Ít nhất 6 ký tự"
+                  autoComplete="new-password"
+                  required
+                  style={{
+                    width: "100%",
+                    boxSizing: "border-box",
+                    padding: "11px 12px",
+                    border:
+                      "1px solid #d1d5db",
+                    borderRadius: "8px",
+                  }}
+                />
+
+                <small
+                  style={{
+                    display: "block",
+                    marginTop: "6px",
+                    color: "#6b7280",
+                  }}
+                >
+                  User sẽ bắt buộc đổi
+                  mật khẩu này ở lần
+                  đăng nhập đầu tiên.
+                </small>
+
+              </div>
+
+
+              <div
+                style={{
+                  marginBottom: "24px",
+                }}
+              >
+
+                <label
+                  style={{
+                    display: "block",
+                    marginBottom: "7px",
+                    fontSize: "13px",
+                    fontWeight: "600",
+                  }}
+                >
+                  Vai trò
+                </label>
+
+                <select
+                  value={
+                    userRoleId
+                  }
+                  onChange={(event) =>
+                    setUserRoleId(
+                      event.target.value
+                    )
+                  }
+                  required
+                  style={{
+                    width: "100%",
+                    boxSizing: "border-box",
+                    padding: "11px 12px",
+                    border:
+                      "1px solid #d1d5db",
+                    borderRadius: "8px",
+                    background:
+                      "#ffffff",
+                  }}
+                >
+
+                  <option value="">
+                    Chọn vai trò
+                  </option>
+
+                  {roles
+                    .filter(
+                      (role) =>
+                        role.is_active
+                    )
+                    .map(
+                      (role) => (
+
+                        <option
+                          key={
+                            role.id
+                          }
+                          value={
+                            role.id
+                          }
+                        >
+                          {role.name}
+                        </option>
+
+                      )
+                    )}
+
+                </select>
+
+              </div>
+
+
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "flex-end",
+                  gap: "10px",
+                }}
+              >
+
+                <button
+                  type="button"
+                  className="secondary-button"
+                  onClick={
+                    closeUserForm
+                  }
+                  disabled={
+                    savingUser
+                  }
+                >
+                  Hủy
+                </button>
+
+
+                <button
+                  type="submit"
+                  className="primary-button"
+                  disabled={
+                    savingUser
+                  }
+                >
+                  {savingUser
+                    ? "Đang tạo..."
+                    : "Tạo tài khoản"}
                 </button>
 
               </div>
