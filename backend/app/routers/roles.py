@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from ..database.connection import get_db
 from ..models.role import Role
 from ..routers.auth import get_current_user
+from ..services.permissions import role_code
 from ..schemas.role import (
     RoleCreate,
     RoleResponse,
@@ -25,7 +26,7 @@ def require_admin(current_user):
             detail="Admin permission required",
         )
 
-    if current_user.role.code != "admin":
+    if role_code(current_user) != "admin":
         raise HTTPException(
             status_code=403,
             detail="Admin permission required",
@@ -47,9 +48,7 @@ def list_roles(
 
     roles = (
         db.query(Role)
-        .filter(
-            Role.is_active == True
-        )
+        .filter(Role.is_active == True, Role.code.in_(["admin", "supervisor", "leader", "user"]))
         .order_by(
             Role.id.asc()
         )
@@ -74,6 +73,7 @@ def create_role(
 ):
 
     require_admin(current_user)
+    raise HTTPException(status_code=400, detail="Hệ thống chỉ sử dụng 4 vai trò cố định: Admin, Supervisor, Leader, User.")
 
 
     existing_name = (
@@ -135,6 +135,7 @@ def update_role(
 ):
 
     require_admin(current_user)
+    raise HTTPException(status_code=400, detail="Vai trò hệ thống là cố định và không thể chỉnh sửa.")
 
 
     role = db.get(
@@ -224,6 +225,7 @@ def delete_role(
 ):
 
     require_admin(current_user)
+    raise HTTPException(status_code=400, detail="Vai trò hệ thống là cố định và không thể xóa.")
 
 
     role = db.get(

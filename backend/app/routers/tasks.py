@@ -26,6 +26,7 @@ from ..services.task_service import (
     update_task,
 )
 from ..services.notification_service import create_notification
+from ..services.permissions import role_code, department_ids, leader_department_ids
 
 
 router = APIRouter(
@@ -43,98 +44,54 @@ class SubtaskUpdateRequest(BaseModel):
 # =========================================================
 
 def is_admin(current_user) -> bool:
-    """
-    Kiểm tra user hiện tại có phải Admin hay không.
-    Role hiện tại là Role object.
-    """
-
-    return (
-        current_user.role is not None
-        and current_user.role.code == "admin"
-    )
+    return role_code(current_user) == "admin"
 
 
-def is_task_creator(
-    current_user,
-    task,
-) -> bool:
-
-    return (
-        current_user.id == task.creator_id
-    )
+def is_supervisor(current_user) -> bool:
+    return role_code(current_user) == "supervisor"
 
 
-def is_task_assignee(
-    current_user,
-    task,
-) -> bool:
-
-    return (
-        current_user.id == task.assignee_id
-    )
+def is_leader(current_user) -> bool:
+    return role_code(current_user) == "leader"
 
 
-def is_task_supporter(
-    current_user,
-    task_id: int,
-    db: Session,
-) -> bool:
-
-    return (
-        db.query(TaskSupporter)
-        .filter(
-            TaskSupporter.task_id == task_id,
-            TaskSupporter.user_id == current_user.id,
-        )
-        .first()
-        is not None
-    )
+def is_task_creator(current_user, task) -> bool:
+    return current_user.id == task.creator_id
 
 
-def can_view_task(
-    current_user,
-    task,
-    db: Session,
-) -> bool:
-
-    if is_admin(current_user):
-        return True
-
-    if is_task_creator(
-        current_user,
-        task,
-    ):
-        return True
-
-    if is_task_assignee(
-        current_user,
-        task,
-    ):
-        return True
-
-    return is_task_supporter(
-        current_user,
-        task.id,
-        db,
-    )
+def is_task_assignee(current_user, task) -> bool:
+    return current_user.id == task.assignee_id
 
 
-def can_manage_task(
-    current_user,
-    task,
-) -> bool:
+def is_task_supporter(current_user, task_id: int, db: Session) -> bool:
+    return db.query(TaskSupporter).filter(TaskSupporter.task_id == task_id, TaskSupporter.user_id == current_user.id).first() is not None
 
-    return (
-        is_admin(current_user)
-        or is_task_creator(
-            current_user,
-            task,
-        )
-        or is_task_assignee(
-            current_user,
-            task,
-        )
-    )
+
+def _user_department_ids(db, user_id):
+    return department_ids(db, user_id)
+
+
+def _task_in_leader_scope(current_user, task, db):
+    if not is_leader(current_user): return False
+    dept_ids = leader_department_ids(db, current_user.id)
+    if not dept_ids: return is_task_creator(current_user, task) or is_task_assignee(current_user, task) or is_task_supporter(current_user, task.id, db)
+    participant_ids = {task.creator_id, task.assignee_id}
+    participant_ids.update(x.user_id for x in task.supporter_links)
+    participant_ids.discard(None)
+    if current_user.id in participant_ids: return True
+    users = db.query(User).filter(User.id.in_(participant_ids)).all() if participant_ids else []
+    return any(department_ids(db, u.id) & dept_ids for u in users)
+
+
+def can_view_task(current_user, task, db: Session) -> bool:
+    role = role_code(current_user)
+    if role in {"admin", "supervisor"}: return True
+    if role == "leader": return _task_in_leader_scope(current_user, task, db)
+    return is_task_assignee(current_user, task) or is_task_supporter(current_user, task.id, db)
+
+
+def can_manage_task(current_user, task) -> bool:
+    return role_code(current_user) in {"admin", "supervisor"}
 
 
 # =========================================================
@@ -151,6 +108,9 @@ def create_new_task(
     current_user=Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+
+    if role_code(current_user) not in {"admin", "supervisor"}:
+        raise HTTPException(status_code=403, detail="Chỉ Admin hoặc Supervisor được tạo task.")
 
     return create_task(
         db=db,
@@ -492,22 +452,16 @@ def update_existing_task(
             detail="Task not found",
         )
 
-    # -----------------------------------------------------
-    # ADMIN / CREATOR / ASSIGNEE
-    # -----------------------------------------------------
-
-    if not can_manage_task(
-        current_user,
-        task,
-    ):
-
-        raise HTTPException(
-            status_code=403,
-            detail=(
-                "You do not have permission "
-                "to update this task"
-            ),
-        )
+    role = role_code(current_user)
+    if role in {"admin", "supervisor"}:
+        pass
+    elif role in {"leader", "user"} and can_view_task(current_user, task, db):
+        allowed_fields = {"status", "progress"}
+        incoming = set(task_data.model_dump(exclude_unset=True).keys())
+        if not incoming or not incoming.issubset(allowed_fields):
+            raise HTTPException(status_code=403, detail="Bạn chỉ được cập nhật trạng thái/tiến độ task trong phạm vi của mình.")
+    else:
+        raise HTTPException(status_code=403, detail="Bạn không có quyền cập nhật task này.")
 
     return update_task(
         db=db,

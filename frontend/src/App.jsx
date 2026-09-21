@@ -5,16 +5,24 @@ import {
   Routes,
 } from "react-router-dom";
 
+
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import MyTasks from "./pages/MyTasks";
 import Tasks from "./pages/Tasks";
 import Settings from "./pages/Settings";
+import Support from "./pages/Support";
+import SupportOrganization from "./pages/SupportOrganization";
+import Notifications from "./pages/Notifications";
 
 
-function ProtectedRoute({ children }) {
+function ProtectedRoute({
+  children,
+}) {
   const token =
-    localStorage.getItem("access_token");
+    localStorage.getItem(
+      "access_token"
+    );
 
   if (!token) {
     return (
@@ -29,9 +37,13 @@ function ProtectedRoute({ children }) {
 }
 
 
-function PublicRoute({ children }) {
+function PublicRoute({
+  children,
+}) {
   const token =
-    localStorage.getItem("access_token");
+    localStorage.getItem(
+      "access_token"
+    );
 
   if (token) {
     return (
@@ -47,6 +59,7 @@ function PublicRoute({ children }) {
 
 
 function App() {
+
   return (
     <BrowserRouter>
 
@@ -99,6 +112,43 @@ function App() {
           }
         />
 
+
+        {/* NOTIFICATIONS */}
+
+        <Route
+          path="/notifications"
+          element={
+            <ProtectedRoute>
+              <Notifications />
+            </ProtectedRoute>
+          }
+        />
+
+
+        {/* SUPPORT */}
+
+        <Route
+          path="/support"
+          element={
+            <ProtectedRoute>
+              <Support />
+            </ProtectedRoute>
+          }
+        />
+
+
+        {/* SUPPORT ADMIN */}
+
+        <Route
+          path="/support/settings"
+          element={
+            <ProtectedRoute>
+              <SupportOrganization />
+            </ProtectedRoute>
+          }
+        />
+
+
         {/* SETTINGS */}
 
         <Route
@@ -107,10 +157,11 @@ function App() {
             <ProtectedRoute>
               <Settings />
             </ProtectedRoute>
-          } 
-        /> 
+          }
+        />
 
-        {/* UNKNOWN ROUTE */}
+
+        {/* UNKNOWN */}
 
         <Route
           path="*"

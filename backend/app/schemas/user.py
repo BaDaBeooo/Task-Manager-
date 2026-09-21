@@ -1,20 +1,13 @@
 from pydantic import BaseModel, ConfigDict
 
 
-# =========================================================
-# USER CREATE
-# =========================================================
-
 class UserCreate(BaseModel):
     username: str
     full_name: str
+    position: str | None = None
     password: str
     role_id: int
 
-
-# =========================================================
-# LOGIN
-# =========================================================
 
 class LoginRequest(BaseModel):
     username: str
@@ -27,34 +20,27 @@ class TokenResponse(BaseModel):
     must_change_password: bool = False
 
 
-# =========================================================
-# USER RESPONSE
-# =========================================================
-
 class UserResponse(BaseModel):
-    model_config = ConfigDict(
-        from_attributes=True
-    )
+    model_config = ConfigDict(from_attributes=True)
 
     id: int
     username: str
     full_name: str
+    position: str | None = None
     role: str
     is_active: bool
     must_change_password: bool
+    role_code: str = "user"
+    permissions: list[str] = []
 
-
-# =========================================================
-# ROLE
-# =========================================================
 
 class UserRoleUpdate(BaseModel):
     role_id: int
 
 
-# =========================================================
-# CHANGE PASSWORD
-# =========================================================
+class UserPositionUpdate(BaseModel):
+    position: str | None = None
+
 
 class ChangePasswordRequest(BaseModel):
     current_password: str
@@ -62,17 +48,9 @@ class ChangePasswordRequest(BaseModel):
     confirm_password: str
 
 
-# =========================================================
-# ADMIN RESET PASSWORD
-# =========================================================
-
 class AdminResetPasswordRequest(BaseModel):
     new_password: str
 
-
-# =========================================================
-# USER CREATE RESPONSE
-# =========================================================
 
 class UserCreateResponse(UserResponse):
     pass

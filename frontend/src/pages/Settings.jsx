@@ -5,6 +5,7 @@ import api from "../services/api";
 import Sidebar from "../components/Sidebar";
 import Topbar from "../components/Topbar";
 import UserAvatar from "../components/UserAvatar";
+import TelegramSettings from "../components/TelegramSettings";
 
 import "../Dashboard.css";
 
@@ -40,7 +41,7 @@ function Settings() {
   const [roleName, setRoleName] =
     useState("");
 
-  const [roleCode, setRoleCode] =
+  const [newRoleCode, setRoleCode] =
     useState("");
 
   const [savingRole, setSavingRole] =
@@ -55,6 +56,9 @@ function Settings() {
     useState(false);
 
   const [userFullName, setUserFullName] =
+    useState("");
+
+  const [userPosition, setUserPosition] =
     useState("");
 
   const [userUsername, setUserUsername] =
@@ -77,14 +81,19 @@ function Settings() {
   const [changingUserId, setChangingUserId] =
     useState(null);
 
+  const [editingPositionUserId, setEditingPositionUserId] =
+    useState(null);
+
+  const [editingPosition, setEditingPosition] =
+    useState("");
+
 
   // =====================================================
   // ADMIN
   // =====================================================
 
-  const isAdmin =
-    currentUser?.role?.toLowerCase() ===
-    "admin";
+  const roleCode = String(currentUser?.role_code || currentUser?.role || "").toLowerCase();
+  const isAdmin = roleCode === "admin";
 
 
   // =====================================================
@@ -99,19 +108,14 @@ function Settings() {
       setError("");
 
 
-      const [
-        meResponse,
-        rolesResponse,
-        usersResponse,
-      ] = await Promise.all([
-
+      const [meResponse, rolesResponse] = await Promise.all([
         api.get("/auth/me"),
-
         api.get("/roles"),
-
-        api.get("/users"),
-
       ]);
+      let usersResponse = { data: [] };
+      if (String(meResponse.data?.role_code || meResponse.data?.role || "").toLowerCase() === "admin") {
+        usersResponse = await api.get("/users");
+      }
 
 
       setCurrentUser(
@@ -287,7 +291,7 @@ function Settings() {
     }
 
 
-    if (!roleCode.trim()) {
+    if (!newRoleCode.trim()) {
 
       setError(
         "Vui lòng nhập mã vai trò."
@@ -314,7 +318,7 @@ function Settings() {
               roleName.trim(),
 
             code:
-              roleCode
+              newRoleCode
                 .trim()
                 .toLowerCase(),
           }
@@ -329,7 +333,7 @@ function Settings() {
               roleName.trim(),
 
             code:
-              roleCode
+              newRoleCode
                 .trim()
                 .toLowerCase(),
           }
@@ -450,6 +454,8 @@ function Settings() {
 
     setUserFullName("");
 
+    setUserPosition("");
+
     setUserUsername("");
 
     setUserPassword("");
@@ -481,6 +487,8 @@ function Settings() {
 
     setUserFullName("");
 
+    setUserPosition("");
+
     setUserUsername("");
 
     setUserPassword("");
@@ -510,6 +518,17 @@ function Settings() {
 
       setError(
         "Vui lòng nhập họ tên."
+      );
+
+      return;
+
+    }
+
+
+    if (!userPosition.trim()) {
+
+      setError(
+        "Vui lòng nhập chức vụ trong công ty."
       );
 
       return;
@@ -562,6 +581,9 @@ function Settings() {
         {
           full_name:
             userFullName.trim(),
+
+          position:
+            userPosition.trim(),
 
           username:
             userUsername.trim(),
@@ -682,6 +704,76 @@ function Settings() {
         null
       );
 
+    }
+
+  };
+
+
+  // =====================================================
+  // EDIT USER POSITION / CHỨC VỤ
+  // =====================================================
+
+  const handleStartEditPosition = (user) => {
+
+    if (!isAdmin || !user.is_active) {
+      return;
+    }
+
+    setEditingPositionUserId(user.id);
+    setEditingPosition(user.position || "");
+    setError("");
+
+  };
+
+
+  const handleCancelEditPosition = () => {
+
+    setEditingPositionUserId(null);
+    setEditingPosition("");
+
+  };
+
+
+  const handleSavePosition = async (userId) => {
+
+    if (!isAdmin) {
+      return;
+    }
+
+    if (!editingPosition.trim()) {
+      setError("Chức vụ không được để trống.");
+      return;
+    }
+
+    try {
+
+      setChangingUserId(userId);
+      setError("");
+
+      const response = await api.put(
+        `/users/${userId}/position`,
+        { position: editingPosition.trim() }
+      );
+
+      setUsers((currentUsers) =>
+        currentUsers.map((user) =>
+          user.id === userId ? response.data : user
+        )
+      );
+
+      setEditingPositionUserId(null);
+      setEditingPosition("");
+
+    } catch (error) {
+
+      console.error("Update user position error:", error);
+      setError(
+        error.response?.data?.detail ||
+        "Không thể cập nhật chức vụ."
+      );
+
+    } finally {
+      setChangingUserId(null);
     }
 
   };
@@ -1072,19 +1164,7 @@ function Settings() {
               </div>
 
 
-              {isAdmin && (
-
-                <button
-                  className="primary-button"
-                  type="button"
-                  onClick={
-                    openCreateRoleForm
-                  }
-                >
-                  + Thêm vai trò
-                </button>
-
-              )}
+              <span className="settings-readonly">4 vai trò cố định</span>
 
             </div>
 
@@ -1148,51 +1228,7 @@ function Settings() {
 
 
                     <div className="role-actions">
-
-                      {isAdmin ? (
-
-                        <>
-
-                          <button
-                            className="secondary-button"
-                            type="button"
-                            onClick={() =>
-                              openEditRoleForm(
-                                role
-                              )
-                            }
-                          >
-                            Sửa
-                          </button>
-
-
-                          {role.code !==
-                            "admin" && (
-
-                            <button
-                              className="danger-button"
-                              type="button"
-                              onClick={() =>
-                                handleDeactivateRole(
-                                  role
-                                )
-                              }
-                            >
-                              Tắt
-                            </button>
-
-                          )}
-
-                        </>
-
-                      ) : (
-
-                        <span className="settings-readonly">
-                          Chỉ xem
-                        </span>
-
-                      )}
-
+                      <span className="settings-readonly">Quyền cố định</span>
                     </div>
 
                   </div>
@@ -1312,17 +1348,105 @@ function Settings() {
                             @{user.username}
                           </div>
 
+                          {editingPositionUserId === user.id ? (
+                            <div
+                              style={{
+                                display: "flex",
+                                gap: "6px",
+                                alignItems: "center",
+                                marginTop: "7px",
+                              }}
+                            >
+                              <input
+                                type="text"
+                                value={editingPosition}
+                                onChange={(event) =>
+                                  setEditingPosition(event.target.value)
+                                }
+                                onKeyDown={(event) => {
+                                  if (event.key === "Enter") {
+                                    event.preventDefault();
+                                    handleSavePosition(user.id);
+                                  }
+                                  if (event.key === "Escape") {
+                                    handleCancelEditPosition();
+                                  }
+                                }}
+                                autoFocus
+                                disabled={isChanging}
+                                style={{
+                                  width: "190px",
+                                  padding: "6px 8px",
+                                  border: "1px solid #cbd5e1",
+                                  borderRadius: "7px",
+                                  fontSize: "12px",
+                                }}
+                              />
+
+                              <button
+                                type="button"
+                                className="primary-button"
+                                style={{ padding: "6px 9px", fontSize: "11px" }}
+                                disabled={isChanging}
+                                onClick={() => handleSavePosition(user.id)}
+                              >
+                                {isChanging ? "..." : "Lưu"}
+                              </button>
+
+                              <button
+                                type="button"
+                                className="secondary-button"
+                                style={{ padding: "6px 9px", fontSize: "11px" }}
+                                disabled={isChanging}
+                                onClick={handleCancelEditPosition}
+                              >
+                                Hủy
+                              </button>
+                            </div>
+                          ) : (
+                            <div
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: "7px",
+                                marginTop: "4px",
+                              }}
+                            >
+                              <span
+                                style={{
+                                  color: "#2563eb",
+                                  fontSize: "11px",
+                                  fontWeight: "600",
+                                }}
+                              >
+                                {user.position || "Chưa cập nhật chức vụ"}
+                              </span>
+
+                              {isAdmin && user.is_active && (
+                                <button
+                                  type="button"
+                                  className="secondary-button"
+                                  style={{ padding: "3px 7px", fontSize: "10px" }}
+                                  disabled={isChanging}
+                                  onClick={() => handleStartEditPosition(user)}
+                                >
+                                  Sửa
+                                </button>
+                              )}
+                            </div>
+                          )}
+
                         </div>
 
                       </div>
 
 
-                      {/* ROLE */}
+                      {/* PERMISSION ROLE */}
 
                       <div className="settings-user-role">
 
                         <label>
-                          Vai trò
+                          Quyền hệ thống
                         </label>
 
 
@@ -1497,6 +1621,13 @@ function Settings() {
 
           </section>
 
+
+          {/* =================================================
+              TELEGRAM
+          ================================================= */}
+
+          <TelegramSettings />
+
         </div>
 
       </main>
@@ -1596,7 +1727,7 @@ function Settings() {
                 <input
                   type="text"
                   value={
-                    roleCode
+                    newRoleCode
                   }
                   onChange={(event) =>
                     setRoleCode(
@@ -1818,6 +1949,51 @@ function Settings() {
                     fontWeight: "600",
                   }}
                 >
+                  Chức vụ trong công ty
+                </label>
+
+                <input
+                  type="text"
+                  value={userPosition}
+                  onChange={(event) => setUserPosition(event.target.value)}
+                  placeholder="Ví dụ: Kỹ sư Pre-Sale, Trưởng phòng Kinh doanh"
+                  required
+                  style={{
+                    width: "100%",
+                    boxSizing: "border-box",
+                    padding: "11px 12px",
+                    border: "1px solid #d1d5db",
+                    borderRadius: "8px",
+                  }}
+                />
+
+                <small
+                  style={{
+                    display: "block",
+                    marginTop: "6px",
+                    color: "#6b7280",
+                  }}
+                >
+                  Đây là chức vụ hiển thị trong danh sách User và khi phân công Task. Không liên quan tới quyền hệ thống.
+                </small>
+
+              </div>
+
+
+              <div
+                style={{
+                  marginBottom: "16px",
+                }}
+              >
+
+                <label
+                  style={{
+                    display: "block",
+                    marginBottom: "7px",
+                    fontSize: "13px",
+                    fontWeight: "600",
+                  }}
+                >
                   Username
                 </label>
 
@@ -1916,7 +2092,7 @@ function Settings() {
                     fontWeight: "600",
                   }}
                 >
-                  Vai trò
+                  Quyền hệ thống
                 </label>
 
                 <select

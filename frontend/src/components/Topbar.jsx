@@ -1,18 +1,40 @@
 import NotificationBell from "./NotificationBell";
 
 
-function Topbar({ user, onLogout }) {
+function getRoleName(role) {
+  if (!role) {
+    return "user";
+  }
+
+  if (typeof role === "string") {
+    return role;
+  }
+
+  return (
+    role.name ||
+    role.code ||
+    "user"
+  );
+}
+
+
+function Topbar({
+  user,
+  onLogout,
+  title = "Tổng quan",
+  description = "Theo dõi công việc của nhóm",
+}) {
   return (
     <header className="topbar">
 
       <div className="topbar-left">
 
         <div className="page-title">
-          Tổng quan
+          {title}
         </div>
 
         <div className="page-description">
-          Theo dõi công việc của nhóm
+          {description}
         </div>
 
       </div>
@@ -26,17 +48,26 @@ function Topbar({ user, onLogout }) {
         <div className="user-menu">
 
           <div className="user-avatar">
-            {user?.full_name?.charAt(0)?.toUpperCase() || "U"}
+            {(
+              user?.full_name ||
+              user?.username ||
+              "U"
+            )
+              .charAt(0)
+              .toUpperCase()}
           </div>
+
 
           <div className="user-info">
 
             <strong>
-              {user?.full_name || user?.username}
+              {user?.full_name ||
+                user?.username ||
+                "user"}
             </strong>
 
             <span>
-              {user?.role || "user"}
+              {getRoleName(user?.role)}
             </span>
 
           </div>
@@ -48,6 +79,7 @@ function Topbar({ user, onLogout }) {
           className="logout-button"
           onClick={onLogout}
           title="Đăng xuất"
+          type="button"
         >
           ↪
         </button>
@@ -57,5 +89,6 @@ function Topbar({ user, onLogout }) {
     </header>
   );
 }
+
 
 export default Topbar;

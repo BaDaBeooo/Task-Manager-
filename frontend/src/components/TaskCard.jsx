@@ -1,3 +1,4 @@
+import { parseApiDate } from "../services/realtime";
 import UserAvatar from "./UserAvatar";
 
 
@@ -28,7 +29,7 @@ function formatDeadline(deadline) {
     return "Không có deadline";
   }
 
-  return new Date(deadline).toLocaleDateString(
+  return parseApiDate(deadline).toLocaleDateString(
     "vi-VN",
     {
       day: "2-digit",

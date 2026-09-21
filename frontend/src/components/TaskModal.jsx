@@ -4,9 +4,7 @@ import api from "../services/api";
 
 
 function TaskModal({ onClose, onCreated }) {
-
-  const [title, setTitle] =
-    useState("");
+  const [title, setTitle] = useState("");
 
   const [description, setDescription] =
     useState("");
@@ -20,9 +18,6 @@ function TaskModal({ onClose, onCreated }) {
   const [assigneeId, setAssigneeId] =
     useState("");
 
-  const [supporterIds, setSupporterIds] =
-    useState([]);
-
   const [users, setUsers] =
     useState([]);
 
@@ -31,9 +26,7 @@ function TaskModal({ onClose, onCreated }) {
 
   const [subtasks, setSubtasks] =
     useState([
-      {
-        title: "",
-      },
+      { title: "" }
     ]);
 
   const [loading, setLoading] =
@@ -46,24 +39,17 @@ function TaskModal({ onClose, onCreated }) {
   /*
    * LOAD USERS
    */
-
   useEffect(() => {
-
     const loadUsers = async () => {
-
       try {
-
         setLoadingUsers(true);
 
         const response =
           await api.get("/users");
 
-        setUsers(
-          response.data
-        );
+        setUsers(response.data);
 
       } catch (error) {
-
         console.error(
           "Load users error:",
           error
@@ -74,155 +60,54 @@ function TaskModal({ onClose, onCreated }) {
         );
 
       } finally {
-
         setLoadingUsers(false);
-
       }
-
     };
 
     loadUsers();
-
   }, []);
-
-
-  /*
-   * CHANGE ASSIGNEE
-   *
-   * Nếu một user đang là supporter
-   * mà được chọn làm assignee chính
-   * thì tự động bỏ khỏi supporter.
-   */
-
-  const handleAssigneeChange = (
-    event
-  ) => {
-
-    const value =
-      event.target.value;
-
-    setAssigneeId(value);
-
-    if (!value) {
-      return;
-    }
-
-    setSupporterIds(
-      (currentIds) =>
-        currentIds.filter(
-          (id) =>
-            String(id) !==
-            String(value)
-        )
-    );
-
-  };
-
-
-  /*
-   * TOGGLE SUPPORTER
-   */
-
-  const toggleSupporter = (
-    userId
-  ) => {
-
-    const normalizedId =
-      Number(userId);
-
-
-    if (
-      assigneeId &&
-      Number(assigneeId) ===
-        normalizedId
-    ) {
-
-      return;
-
-    }
-
-
-    setSupporterIds(
-      (currentIds) => {
-
-        if (
-          currentIds.includes(
-            normalizedId
-          )
-        ) {
-
-          return currentIds.filter(
-            (id) =>
-              id !== normalizedId
-          );
-
-        }
-
-
-        return [
-          ...currentIds,
-          normalizedId,
-        ];
-
-      }
-    );
-
-  };
 
 
   /*
    * ADD SUBTASK
    */
-
   const addSubtask = () => {
-
     setSubtasks([
       ...subtasks,
       {
-        title: "",
-      },
+        title: ""
+      }
     ]);
-
   };
 
 
   /*
    * UPDATE SUBTASK
    */
-
   const updateSubtask = (
     index,
     value
   ) => {
-
     const updated = [
-      ...subtasks,
+      ...subtasks
     ];
 
-    updated[index].title =
-      value;
+    updated[index].title = value;
 
     setSubtasks(updated);
-
   };
 
 
   /*
    * REMOVE SUBTASK
    */
-
   const removeSubtask = (
     index
   ) => {
 
-    if (
-      subtasks.length === 1
-    ) {
-
+    if (subtasks.length === 1) {
       return;
-
     }
-
 
     setSubtasks(
       subtasks.filter(
@@ -230,14 +115,12 @@ function TaskModal({ onClose, onCreated }) {
           i !== index
       )
     );
-
   };
 
 
   /*
    * CREATE TASK
    */
-
   const handleSubmit = async (
     event
   ) => {
@@ -252,7 +135,6 @@ function TaskModal({ onClose, onCreated }) {
       );
 
       return;
-
     }
 
 
@@ -261,11 +143,6 @@ function TaskModal({ onClose, onCreated }) {
       setLoading(true);
       setError("");
 
-
-      /*
-       * STEP 1
-       * CREATE TASK
-       */
 
       const taskData = {
 
@@ -298,10 +175,9 @@ function TaskModal({ onClose, onCreated }) {
             .map(
               (item) => ({
                 title:
-                  item.title.trim(),
+                  item.title.trim()
               })
             ),
-
       };
 
 
@@ -312,51 +188,11 @@ function TaskModal({ onClose, onCreated }) {
         );
 
 
-      const createdTask =
-        response.data;
-
-
-      /*
-       * STEP 2
-       * ADD SUPPORTERS
-       */
-
-      if (
-        supporterIds.length > 0
-      ) {
-
-        await Promise.all(
-          supporterIds.map(
-            (userId) =>
-              api.post(
-                `/tasks/${createdTask.id}/supporters/${userId}`
-              )
-          )
-        );
-
-      }
-
-
-      /*
-       * STEP 3
-       * LOAD FULL TASK
-       *
-       * Để response có supporters
-       */
-
-      const detailResponse =
-        await api.get(
-          `/tasks/${createdTask.id}`
-        );
-
-
       onCreated(
-        detailResponse.data
+        response.data
       );
 
-
       onClose();
-
 
     } catch (error) {
 
@@ -377,7 +213,6 @@ function TaskModal({ onClose, onCreated }) {
         window.location.href = "/";
 
         return;
-
       }
 
 
@@ -386,34 +221,15 @@ function TaskModal({ onClose, onCreated }) {
         "Không thể tạo công việc."
       );
 
-
     } finally {
 
       setLoading(false);
 
     }
-
   };
 
 
-  /*
-   * USERS AVAILABLE AS SUPPORTERS
-   *
-   * Không cho chọn người đang là
-   * assignee chính.
-   */
-
-  const supporterUsers =
-    users.filter(
-      (user) =>
-        !assigneeId ||
-        Number(user.id) !==
-          Number(assigneeId)
-    );
-
-
   return (
-
     <div
       className="modal-overlay"
 
@@ -423,9 +239,7 @@ function TaskModal({ onClose, onCreated }) {
           event.target ===
           event.currentTarget
         ) {
-
           onClose();
-
         }
 
       }}
@@ -533,13 +347,15 @@ function TaskModal({ onClose, onCreated }) {
           <div className="form-group">
 
             <label>
-              Người phụ trách chính
+              Giao cho
             </label>
 
             <select
               value={assigneeId}
-              onChange={
-                handleAssigneeChange
+              onChange={(event) =>
+                setAssigneeId(
+                  event.target.value
+                )
               }
               disabled={loadingUsers}
             >
@@ -558,138 +374,13 @@ function TaskModal({ onClose, onCreated }) {
                     key={user.id}
                     value={user.id}
                   >
-                    {user.full_name ||
-                      user.username}
+                    {user.full_name || user.username}{user.position ? ` · ${user.position}` : ""}
                   </option>
 
                 )
               )}
 
             </select>
-
-          </div>
-
-
-          {/* SUPPORTERS */}
-
-          <div className="form-group">
-
-            <label>
-              Người hỗ trợ
-            </label>
-
-            <div className="supporter-picker">
-
-              {loadingUsers ? (
-
-                <div className="supporter-loading">
-                  Đang tải thành viên...
-                </div>
-
-              ) : supporterUsers.length ===
-                0 ? (
-
-                <div className="supporter-empty">
-                  Không có thành viên khác.
-                </div>
-
-              ) : (
-
-                <div className="supporter-list">
-
-                  {supporterUsers.map(
-                    (user) => {
-
-                      const selected =
-                        supporterIds.includes(
-                          Number(user.id)
-                        );
-
-
-                      return (
-
-                        <button
-                          key={user.id}
-                          type="button"
-                          className={`supporter-option ${
-                            selected
-                              ? "selected"
-                              : ""
-                          }`}
-                          onClick={() =>
-                            toggleSupporter(
-                              user.id
-                            )
-                          }
-                        >
-
-                          <span className="supporter-checkbox">
-
-                            {selected
-                              ? "✓"
-                              : ""}
-
-                          </span>
-
-
-                          <span className="supporter-avatar">
-
-                            {(
-                              user.full_name ||
-                              user.username ||
-                              "U"
-                            )
-                              .charAt(0)
-                              .toUpperCase()}
-
-                          </span>
-
-
-                          <span className="supporter-info">
-
-                            <strong>
-                              {user.full_name ||
-                                user.username}
-                            </strong>
-
-                            <small>
-                              {user.role ||
-                                "member"}
-                            </small>
-
-                          </span>
-
-                        </button>
-
-                      );
-
-                    }
-                  )}
-
-                </div>
-
-              )}
-
-            </div>
-
-
-            {supporterIds.length > 0 && (
-
-              <div className="selected-supporters">
-
-                <span>
-                  Đã chọn:
-                </span>
-
-                <strong>
-                  {supporterIds.length}
-                  {" "}
-                  người hỗ trợ
-                </strong>
-
-              </div>
-
-            )}
 
           </div>
 
@@ -879,9 +570,7 @@ function TaskModal({ onClose, onCreated }) {
       </div>
 
     </div>
-
   );
-
 }
 
 

@@ -131,6 +131,31 @@ function MyTasks() {
 
   }, []);
 
+  // Keep an open task detail synchronized with the refreshed list.
+  useEffect(() => {
+    if (!selectedTask) return;
+
+    const latest = tasks.find((item) => item.id === selectedTask.id);
+    if (latest) {
+      setSelectedTask(latest);
+    } else if (tasks.length > 0) {
+      setSelectedTask(null);
+    }
+  }, [tasks, selectedTask?.id]);
+
+  // Realtime task changes: refresh the page data without F5.
+  useEffect(() => {
+    const handleRealtime = (event) => {
+      const data = event.detail;
+      if (data?.type !== "data_changed" || data.entity !== "task") return;
+
+      loadMyTasks();
+    };
+
+    window.addEventListener("taskmanager:realtime", handleRealtime);
+    return () => window.removeEventListener("taskmanager:realtime", handleRealtime);
+  }, []);
+
 
   // =====================================================
   // LOGOUT

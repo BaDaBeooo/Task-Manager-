@@ -6,11 +6,13 @@ from ..database.connection import get_db
 from ..models.role import Role
 from ..models.user import User
 from ..routers.auth import get_current_user
+from ..services.permissions import permissions_for, role_code, role_name
 from ..schemas.user import (
     AdminResetPasswordRequest,
     UserCreate,
     UserResponse,
     UserRoleUpdate,
+    UserPositionUpdate,
 )
 from ..services.user_service import (
     create_user,
@@ -39,7 +41,7 @@ def require_admin(
             detail="Admin permission required",
         )
 
-    if current_user.role.code != "admin":
+    if role_code(current_user) != "admin":
 
         raise HTTPException(
             status_code=403,
@@ -59,11 +61,10 @@ def build_user_response(
         id=user.id,
         username=user.username,
         full_name=user.full_name,
-        role=(
-            user.role.name
-            if user.role
-            else "Chưa phân loại"
-        ),
+        position=user.position,
+        role=role_name(user),
+        role_code=role_code(user),
+        permissions=permissions_for(user),
         is_active=user.is_active,
         must_change_password=(
             user.must_change_password
@@ -125,6 +126,7 @@ def create_new_user(
     username = data.username.strip()
 
     full_name = data.full_name.strip()
+    position = (data.position or "").strip() or None
 
     if not username:
 
@@ -185,6 +187,7 @@ def create_new_user(
             UserCreate(
                 username=username,
                 full_name=full_name,
+                position=position,
                 password=data.password,
                 role_id=data.role_id,
             ),
@@ -263,6 +266,32 @@ def update_user_role(
     return build_user_response(
         user
     )
+
+
+# =========================================================
+# UPDATE POSITION / CHỨC VỤ
+# =========================================================
+
+@router.put(
+    "/{user_id}/position",
+    response_model=UserResponse,
+)
+def update_user_position(
+    user_id: int,
+    data: UserPositionUpdate,
+    current_user=Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    require_admin(current_user)
+
+    user = db.get(User, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    user.position = (data.position or "").strip() or None
+    db.commit()
+    db.refresh(user)
+    return build_user_response(user)
 
 
 # =========================================================

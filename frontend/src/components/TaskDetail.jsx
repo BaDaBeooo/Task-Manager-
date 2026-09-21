@@ -207,6 +207,15 @@ function TaskDetail({
   const [showDeleteConfirm, setShowDeleteConfirm] =
     useState(false);
 
+  const [currentUser, setCurrentUser] = useState(null);
+  const roleCode = String(currentUser?.role_code || currentUser?.role || "").toLowerCase();
+  const canFullEdit = roleCode === "admin" || roleCode === "supervisor";
+  const canUpdateStatus = canFullEdit || roleCode === "leader" || roleCode === "user";
+
+  useEffect(() => {
+    api.get("/auth/me").then((response) => setCurrentUser(response.data || null)).catch(() => {});
+  }, []);
+
 
   /*
    * =======================================================
@@ -470,6 +479,19 @@ function TaskDetail({
    * START EDIT
    * =======================================================
    */
+
+  const handleStatusChange = async (event) => {
+    const status = event.target.value;
+    try {
+      setSaving(true); setError("");
+      const response = await api.put(`/tasks/${currentTask.id}`, { status });
+      setCurrentTask(response.data);
+      if (onUpdated) onUpdated(response.data);
+    } catch (error) {
+      setError(error.response?.data?.detail || "Không thể cập nhật trạng thái.");
+    } finally { setSaving(false); }
+  };
+
 
   const handleStartEdit = () => {
 
@@ -1175,8 +1197,7 @@ function TaskDetail({
                         key={user.id}
                         value={user.id}
                       >
-                        {user.full_name ||
-                          user.username}
+                        {user.full_name || user.username}{user.position ? ` · ${user.position}` : ""}
                       </option>
 
                     )
@@ -1267,8 +1288,7 @@ function TaskDetail({
                                 </strong>
 
                                 <small>
-                                  {user.role ||
-                                    "member"}
+                                  {user.position || user.role || "member"}
                                 </small>
 
                               </span>
@@ -1914,33 +1934,32 @@ function TaskDetail({
 
             <>
 
-              <button
+              {canFullEdit && <button
                 className="secondary-button"
-                onClick={
-                  handleStartEdit
-                }
+                onClick={handleStartEdit}
                 type="button"
               >
-                <span>
-                  ✏️ Chỉnh sửa
-                </span>
-              </button>
+                <span>✏️ Chỉnh sửa</span>
+              </button>}
 
 
-              <button
+              {canFullEdit && <button
                 className="danger-button"
-                onClick={() =>
-                  setShowDeleteConfirm(
-                    true
-                  )
-                }
+                onClick={() => setShowDeleteConfirm(true)}
                 type="button"
               >
-                <span>
-                  🗑️ Xóa
-                </span>
-              </button>
+                <span>🗑️ Xóa</span>
+              </button>}
 
+
+              {canUpdateStatus && <label className="task-status-inline">
+                <span>Trạng thái</span>
+                <select value={currentTask.status} onChange={handleStatusChange} disabled={saving}>
+                  <option value="todo">Chưa làm</option>
+                  <option value="in_progress">Đang làm</option>
+                  <option value="completed">Hoàn thành</option>
+                </select>
+              </label>}
 
               <button
                 className="secondary-button"

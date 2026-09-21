@@ -3226,3 +3226,32 @@
   font-size: 13px;
   color: #9ca3af;
 }
+/* =====================================================
+   MIRAWAY SIDEBAR LOGO
+   ===================================================== */
+
+.sidebar-logo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.sidebar-logo-image {
+  width: 42px;
+  height: 42px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+.sidebar-logo-text {
+  min-width: 0;
+}
+
+.sidebar-logo-text .logo-title {
+  font-weight: 700;
+}
+
+.sidebar-logo-text .logo-subtitle {
+  font-size: 11px;
+  opacity: 0.65;
+}.task-status-inline{display:flex;align-items:center;gap:7px;margin-right:auto;color:#64748b;font-size:11px;font-weight:600}.task-status-inline select{padding:8px 10px;border:1px solid #d8dee8;border-radius:8px;background:#fff;color:#334155;font:inherit;font-size:11px}

@@ -16,6 +16,7 @@ from ..schemas.user import (
     UserCreate,
     UserResponse,
 )
+from ..services.permissions import permissions_for, role_code, role_name
 from ..services.user_service import (
     create_user,
     get_user_by_id,
@@ -41,11 +42,10 @@ def build_user_response(user):
         id=user.id,
         username=user.username,
         full_name=user.full_name,
-        role=(
-            user.role.name
-            if user.role
-            else "Chưa phân loại"
-        ),
+        position=user.position,
+        role=role_name(user),
+        role_code=role_code(user),
+        permissions=permissions_for(user),
         is_active=user.is_active,
         must_change_password=user.must_change_password,
     )
@@ -175,8 +175,7 @@ def register(
 ):
 
     if (
-        not current_user.role
-        or current_user.role.code != "admin"
+        role_code(current_user) != "admin"
     ):
 
         raise HTTPException(

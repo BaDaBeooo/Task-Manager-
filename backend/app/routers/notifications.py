@@ -80,3 +80,48 @@ def mark_notification_as_read(
     db.refresh(notification)
 
     return notification
+
+# =========================================================
+# MARK ALL AS READ
+# =========================================================
+
+@router.patch(
+    "/read-all",
+)
+def mark_all_notifications_as_read(
+    current_user=Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Mark every unread notification of the current user as read."""
+
+    unread_notifications = (
+        db.query(Notification)
+        .filter(
+            Notification.user_id == current_user.id,
+            Notification.is_read == False,
+        )
+        .all()
+    )
+
+    for notification in unread_notifications:
+        notification.is_read = True
+
+    db.commit()
+
+    # Keep multiple browser tabs/devices in sync.
+    try:
+        from ..services.realtime_service import realtime_manager
+        realtime_manager.publish_user(
+            current_user.id,
+            {
+                "type": "notifications_read_all",
+                "user_id": current_user.id,
+            },
+        )
+    except Exception as exc:
+        print(f"[Realtime] Mark-all-read publish error: {exc}")
+
+    return {
+        "success": True,
+        "marked_count": len(unread_notifications),
+    }

@@ -3,6 +3,7 @@ from datetime import datetime
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
+from ..models.user import User
 from ..models.task import (
     Subtask,
     Task,
@@ -108,43 +109,29 @@ def get_task(
 # GET TASKS
 # =========================================================
 
-def get_tasks(
-    db: Session,
-    current_user=None,
-    mine: bool = False,
-) -> list[Task]:
-
+def get_tasks(db: Session, current_user=None, mine: bool = False) -> list[Task]:
+    from .permissions import role_code, leader_department_ids, department_ids
+    role = role_code(current_user)
     statement = select(Task)
-
-    # -----------------------------------------------------
-    # MY TASKS
-    # -----------------------------------------------------
-
+    if role in {"admin", "supervisor"}:
+        pass
+    elif role == "leader":
+        dept_ids = leader_department_ids(db, current_user.id)
+        if dept_ids:
+            # Keep the query simple and deterministic for SQLite: derive team-visible tasks from participants.
+            participant_ids = {u.id for u in db.query(User).all() if department_ids(db, u.id) & dept_ids}
+            filters = [Task.creator_id.in_(participant_ids), Task.assignee_id.in_(participant_ids)] if participant_ids else []
+            if participant_ids: filters.append(Task.supporter_links.any(TaskSupporter.user_id.in_(participant_ids)))
+            if filters: statement = statement.where(or_(*filters))
+            else: statement = statement.where(Task.id == -1)
+        else:
+            statement = statement.where(or_(Task.assignee_id == current_user.id, Task.supporter_links.any(TaskSupporter.user_id == current_user.id)))
+    else:
+        statement = statement.where(or_(Task.assignee_id == current_user.id, Task.supporter_links.any(TaskSupporter.user_id == current_user.id)))
     if mine:
-
-        statement = statement.where(
-
-            or_(
-
-                Task.assignee_id
-                == current_user.id,
-
-                Task.supporter_links.any(
-                    TaskSupporter.user_id
-                    == current_user.id
-                ),
-
-            )
-
-        )
-
-    statement = statement.order_by(
-        Task.created_at.desc()
-    )
-
-    return list(
-        db.scalars(statement).all()
-    )
+        statement = statement.where(or_(Task.assignee_id == current_user.id, Task.supporter_links.any(TaskSupporter.user_id == current_user.id)))
+    statement = statement.order_by(Task.created_at.desc())
+    return list(db.scalars(statement).all())
 
 
 # =========================================================

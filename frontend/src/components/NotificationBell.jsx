@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../services/api";
+import { parseApiDate } from "../services/realtime";
 
 function NotificationBell() {
   const navigate = useNavigate();
@@ -41,33 +42,98 @@ function NotificationBell() {
   };
 
   // =====================================================
-  // INITIAL LOAD + POLLING
+  // INITIAL LOAD + REALTIME WEBSOCKET
   // =====================================================
 
   useEffect(() => {
     loadNotifications();
 
-    // Kiểm tra notification mới mỗi 5 giây
-    const interval = setInterval(() => {
-      loadNotifications();
-    }, 5000);
+    let socket = null;
+    let reconnectTimer = null;
+    let pingTimer = null;
+    let stopped = false;
 
-    document.addEventListener(
-      "mousedown",
-      handleClickOutside
-    );
+    const connect = () => {
+      if (stopped) return;
+
+      const token = localStorage.getItem("access_token");
+      if (!token) return;
+
+      socket = new WebSocket(
+        `ws://127.0.0.1:8000/ws/notifications?token=${encodeURIComponent(token)}`
+      );
+
+      socket.onopen = () => {
+        console.log("[Realtime] Notification WebSocket connected");
+
+        pingTimer = setInterval(() => {
+          if (socket?.readyState === WebSocket.OPEN) {
+            socket.send("ping");
+          }
+        }, 25000);
+      };
+
+      socket.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+
+          // Broadcast generic realtime events to the current page so task/ticket
+          // lists can refresh without polling or requiring F5.
+          if (data.type === "data_changed") {
+            window.dispatchEvent(
+              new CustomEvent("taskmanager:realtime", { detail: data })
+            );
+            return;
+          }
+
+          if (data.type === "notifications_read_all") {
+            setNotifications((current) =>
+              current.map((item) => ({
+                ...item,
+                is_read: true,
+              }))
+            );
+            return;
+          }
+
+          if (data.type !== "notification" || !data.notification) return;
+
+          const incoming = data.notification;
+          setNotifications((current) => {
+            if (current.some((item) => item.id === incoming.id)) return current;
+            return [incoming, ...current];
+          });
+        } catch (error) {
+          console.error("Realtime notification parse error:", error);
+        }
+      };
+
+      socket.onerror = (error) => {
+        console.warn("[Realtime] Notification WebSocket error", error);
+      };
+
+      socket.onclose = () => {
+        if (pingTimer) {
+          clearInterval(pingTimer);
+          pingTimer = null;
+        }
+        if (!stopped) reconnectTimer = setTimeout(connect, 2000);
+      };
+    };
+
+    connect();
+
+    document.addEventListener("mousedown", handleClickOutside);
 
     return () => {
-      clearInterval(interval);
-
-      document.removeEventListener(
-        "mousedown",
-        handleClickOutside
-      );
+      stopped = true;
+      if (reconnectTimer) clearTimeout(reconnectTimer);
+      if (pingTimer) clearInterval(pingTimer);
+      if (socket) socket.close();
+      document.removeEventListener("mousedown", handleClickOutside);
     };
   }, []);
 
-  // =====================================================
   // MARK AS READ
   // =====================================================
 
@@ -109,6 +175,33 @@ function NotificationBell() {
   };
 
   // =====================================================
+  // MARK ALL AS READ
+  // =====================================================
+
+  const handleMarkAllAsRead = async (event) => {
+    // Prevent the dropdown's notification click handling.
+    event?.stopPropagation();
+
+    if (unreadCount === 0) return;
+
+    try {
+      await api.patch("/notifications/read-all");
+
+      setNotifications((current) =>
+        current.map((item) => ({
+          ...item,
+          is_read: true,
+        }))
+      );
+    } catch (error) {
+      console.error(
+        "Mark all notifications as read error:",
+        error
+      );
+    }
+  };
+
+  // =====================================================
   // UNREAD COUNT
   // =====================================================
 
@@ -128,7 +221,7 @@ function NotificationBell() {
       return "";
     }
 
-    const date = new Date(createdAt);
+    const date = parseApiDate(createdAt);
 
     if (Number.isNaN(date.getTime())) {
       return "";
@@ -193,11 +286,24 @@ function NotificationBell() {
               Thông báo
             </strong>
 
-            {unreadCount > 0 && (
-              <span className="notification-count">
-                {unreadCount} chưa đọc
-              </span>
-            )}
+            <div className="notification-header-actions">
+              {unreadCount > 0 && (
+                <span className="notification-count">
+                  {unreadCount} chưa đọc
+                </span>
+              )}
+
+              {unreadCount > 0 && (
+                <button
+                  type="button"
+                  className="notification-mark-all-button"
+                  onClick={handleMarkAllAsRead}
+                  title="Đánh dấu tất cả đã đọc"
+                >
+                  Đọc tất cả
+                </button>
+              )}
+            </div>
 
           </div>
 

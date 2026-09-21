@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 
 import api from "../services/api";
+import { parseApiDate } from "../services/realtime";
 
 import Sidebar from "../components/Sidebar";
 import Topbar from "../components/Topbar";
@@ -108,6 +109,21 @@ function Dashboard() {
 
   }, []);
 
+  // Realtime task changes: refresh the page data without F5.
+  useEffect(() => {
+    const handleRealtime = (event) => {
+      const data = event.detail;
+      if (data?.type !== "data_changed" || data.entity !== "task") return;
+
+      api.get("/tasks")
+        .then((response) => setTasks(response.data || []))
+        .catch((error) => console.error("Realtime dashboard refresh error:", error));
+    };
+
+    window.addEventListener("taskmanager:realtime", handleRealtime);
+    return () => window.removeEventListener("taskmanager:realtime", handleRealtime);
+  }, []);
+
 
   // =====================================================
   // LOGOUT
@@ -197,7 +213,7 @@ function Dashboard() {
 
 
         return (
-          new Date(
+          parseApiDate(
             task.deadline
           ) < now
         );
