@@ -1,88 +1,29 @@
+import { resolveAvatarUrl } from "../utils/avatar";
+
 function getInitial(fullName = "") {
   const name = fullName.trim();
-
-  if (!name) {
-    return "?";
-  }
-
-  return name.charAt(0).toUpperCase();
+  return name ? name.charAt(0).toUpperCase() : "?";
 }
-
 
 function getAvatarColor(userId) {
-  const colors = [
-    "#DBEAFE",
-    "#DCFCE7",
-    "#FCE7F3",
-    "#FEF3C7",
-    "#EDE9FE",
-    "#CCFBF1",
-    "#FFEDD5",
-    "#E0E7FF",
-  ];
-
-  if (!userId) {
-    return colors[0];
-  }
-
-  return colors[userId % colors.length];
+  const colors = ["#DBEAFE", "#DCFCE7", "#FCE7F3", "#FEF3C7", "#EDE9FE", "#CCFBF1", "#FFEDD5", "#E0E7FF"];
+  return userId ? colors[userId % colors.length] : colors[0];
 }
 
-
-function UserAvatar({
-  user,
-  size = "medium",
-  showRole = true,
-}) {
-  if (!user) {
-    return null;
-  }
-
-  const fullName =
-    user.full_name ||
-    user.fullName ||
-    "Unknown User";
-
-  const role =
-    typeof user.role === "string"
-      ? user.role
-      : user.role?.name || "";
-
-  const initial =
-    getInitial(fullName);
-
-  const backgroundColor =
-    getAvatarColor(user.id);
-
+export default function UserAvatar({ user, size = "medium", showRole = true, showName = true }) {
+  if (!user) return null;
+  const fullName = user.full_name || user.fullName || "Unknown User";
+  const position = user.position || "Chưa cập nhật chức vụ";
+  const avatarUrl = user.avatar_url;
   return (
-    <div
-      className={`user-avatar-wrapper user-avatar-${size}`}
-    >
-      <div
-        className="user-avatar-circle"
-        style={{
-          backgroundColor,
-        }}
-      >
-        {initial}
+    <div className={`user-avatar-wrapper user-avatar-${size}`}>
+      <div className="user-avatar-circle" style={{ backgroundColor: getAvatarColor(user.id), overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        {avatarUrl ? <img src={resolveAvatarUrl(avatarUrl)} alt="" className="user-avatar-photo" onError={(event) => { event.currentTarget.style.display = "none"; }} /> : getInitial(fullName)}
       </div>
-
-      <div className="user-avatar-info">
-
-        <div className="user-avatar-name">
-          {fullName}
-        </div>
-
-        {showRole && role && (
-          <div className="user-avatar-role">
-            {role}
-          </div>
-        )}
-
-      </div>
+      {(showName || showRole) && <div className="user-avatar-info">
+        {showName && <div className="user-avatar-name">{fullName}</div>}
+        {showRole && <div className="user-avatar-role">{position}</div>}
+      </div>}
     </div>
   );
 }
-
-
-export default UserAvatar;

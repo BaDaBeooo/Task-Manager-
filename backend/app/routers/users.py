@@ -1,10 +1,19 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from datetime import datetime
+import base64
+import binascii
+from pathlib import Path
+
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
 from ..core.security import hash_password
 from ..database.connection import get_db
 from ..models.role import Role
 from ..models.user import User
+from ..models.task import Task, TaskSupporter
+from ..models.support import SupportTicket
+from ..models.organization import Department, DepartmentMember, SupportTeam, SupportTeamMember
 from ..routers.auth import get_current_user
 from ..services.permissions import permissions_for, role_code, role_name
 from ..schemas.user import (
@@ -18,6 +27,8 @@ from ..services.user_service import (
     create_user,
     get_user_by_username,
 )
+
+import secrets
 
 
 router = APIRouter(
@@ -62,6 +73,7 @@ def build_user_response(
         username=user.username,
         full_name=user.full_name,
         position=user.position,
+        avatar_url=user.avatar_url,
         role=role_name(user),
         role_code=role_code(user),
         permissions=permissions_for(user),
@@ -81,14 +93,23 @@ def build_user_response(
     response_model=list[UserResponse],
 )
 def list_users(
+    include_inactive: bool = Query(False),
     current_user=Depends(
         get_current_user
     ),
     db: Session = Depends(get_db),
 ):
 
+    if include_inactive:
+        require_admin(current_user)
+
+    query = db.query(User).filter(User.deleted_at.is_(None))
+
+    if not include_inactive:
+        query = query.filter(User.is_active == True)
+
     users = (
-        db.query(User)
+        query
         .order_by(
             User.is_active.desc(),
             User.full_name.asc(),
@@ -295,6 +316,62 @@ def update_user_position(
 
 
 # =========================================================
+# AVATAR UPLOAD / DELIVERY
+# Frontend sends a cropped PNG data URL, so no multipart dependency
+# or third-party image library is required.
+# =========================================================
+
+@router.put("/me/avatar")
+def upload_my_avatar(
+    data: dict,
+    current_user=Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    avatar_data = data.get("avatar_data", "")
+    if not isinstance(avatar_data, str) or not avatar_data.startswith("data:image/png;base64,"):
+        raise HTTPException(status_code=400, detail="Ảnh avatar phải là PNG đã crop.")
+
+    encoded = avatar_data.split(",", 1)[1]
+    if len(encoded) > 4_000_000:
+        raise HTTPException(status_code=413, detail="Ảnh quá lớn. Vui lòng chọn ảnh nhỏ hơn.")
+
+    try:
+        image_bytes = base64.b64decode(encoded, validate=True)
+    except (binascii.Error, ValueError):
+        raise HTTPException(status_code=400, detail="Dữ liệu ảnh không hợp lệ.")
+
+    if len(image_bytes) > 2_500_000 or not image_bytes.startswith(b"\x89PNG\r\n\x1a\n"):
+        raise HTTPException(status_code=400, detail="Ảnh PNG không hợp lệ hoặc vượt quá 2.5 MB.")
+
+    avatar_dir = Path(__file__).resolve().parents[2] / "uploads" / "avatars"
+    avatar_dir.mkdir(parents=True, exist_ok=True)
+    target = avatar_dir / f"{current_user.id}.png"
+    temp = avatar_dir / f"{current_user.id}.tmp"
+    temp.write_bytes(image_bytes)
+    temp.replace(target)
+
+    current_user.avatar_url = f"/api/users/{current_user.id}/avatar?v={int(datetime.utcnow().timestamp())}"
+    db.commit()
+    db.refresh(current_user)
+    return {"avatar_url": current_user.avatar_url}
+
+
+@router.get("/{user_id}/avatar", include_in_schema=False)
+def get_user_avatar(
+    user_id: int,
+    db: Session = Depends(get_db),
+):
+    user = db.get(User, user_id)
+    if not user or not user.avatar_url:
+        raise HTTPException(status_code=404, detail="Chưa có avatar.")
+
+    target = Path(__file__).resolve().parents[2] / "uploads" / "avatars" / f"{user_id}.png"
+    if not target.is_file():
+        raise HTTPException(status_code=404, detail="Không tìm thấy avatar.")
+    return FileResponse(target, media_type="image/png", headers={"Cache-Control": "public, max-age=3600"})
+
+
+# =========================================================
 # RESET PASSWORD
 # =========================================================
 
@@ -440,3 +517,81 @@ def activate_user(
     return build_user_response(
         user
     )
+
+# =========================================================
+# DELETE USER ACCOUNT
+# =========================================================
+
+@router.delete(
+    "/{user_id}",
+)
+def delete_user_account(
+    user_id: int,
+    current_user=Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    require_admin(current_user)
+
+    if user_id == current_user.id:
+        raise HTTPException(
+            status_code=400,
+            detail="Không thể xóa tài khoản đang đăng nhập.",
+        )
+
+    user = db.get(User, user_id)
+    if not user or user.deleted_at is not None:
+        raise HTTPException(
+            status_code=404,
+            detail="User not found",
+        )
+
+    if role_code(user) == "admin":
+        raise HTTPException(
+            status_code=400,
+            detail="Không thể xóa tài khoản Admin.",
+        )
+
+    # Preserve historical task/ticket/announcement records while making
+    # the account unusable and invisible to normal user pickers.
+    user_id_value = user.id
+    user.deleted_at = datetime.utcnow()
+    user.is_active = False
+    user.telegram_chat_id = None
+    user.telegram_link_code = None
+    user.telegram_link_code_expires_at = None
+    user.must_change_password = False
+    user.full_name = "Tài khoản đã xóa"
+    user.position = None
+    user.username = f"deleted_{user_id_value}_{secrets.token_hex(4)}"
+    user.password_hash = hash_password(secrets.token_urlsafe(32))
+
+    # Remove the account from assignment/support/member pickers without
+    # destroying historical activity records.
+    db.query(Task).filter(Task.assignee_id == user_id_value).update(
+        {Task.assignee_id: None}, synchronize_session=False
+    )
+    db.query(TaskSupporter).filter(TaskSupporter.user_id == user_id_value).delete(
+        synchronize_session=False
+    )
+    db.query(SupportTicket).filter(SupportTicket.assignee_id == user_id_value).update(
+        {SupportTicket.assignee_id: None}, synchronize_session=False
+    )
+    db.query(SupportTeamMember).filter(SupportTeamMember.user_id == user_id_value).delete(
+        synchronize_session=False
+    )
+    db.query(DepartmentMember).filter(DepartmentMember.user_id == user_id_value).delete(
+        synchronize_session=False
+    )
+    db.query(SupportTeam).filter(SupportTeam.lead_id == user_id_value).update(
+        {SupportTeam.lead_id: None}, synchronize_session=False
+    )
+    db.query(Department).filter(Department.manager_id == user_id_value).update(
+        {Department.manager_id: None}, synchronize_session=False
+    )
+
+    db.commit()
+
+    return {
+        "message": "Tài khoản đã được xóa.",
+        "user_id": user_id_value,
+    }

@@ -5,6 +5,7 @@ from .task import (
     Task,
     TaskSupporter,
     TaskActivity,
+    TaskComment,
 )
 
 from .user import User
@@ -17,6 +18,19 @@ from .support import (
     SupportTicketActivity,
 )
 
+from .organization import (
+    Department,
+    DepartmentMember,
+    SupportTeam,
+    SupportTeamMember,
+    SupportRoutingRule,
+)
+
+from .announcement import (
+    Announcement,
+    AnnouncementRead,
+)
+
 
 __all__ = [
     "User",
@@ -26,15 +40,20 @@ __all__ = [
     "Subtask",
     "TaskSupporter",
     "TaskActivity",
+    "TaskComment",
 
     "Notification",
 
     "SupportTicket",
     "SupportTicketComment",
     "SupportTicketActivity",
-]
-from .organization import Department, DepartmentMember, SupportTeam, SupportTeamMember, SupportRoutingRule
 
-__all__ += ["Department", "DepartmentMember", "SupportTeam", "SupportTeamMember", "SupportRoutingRule"]
-from .announcement import Announcement, AnnouncementRead
-__all__ += ["Announcement", "AnnouncementRead"]
+    "Department",
+    "DepartmentMember",
+    "SupportTeam",
+    "SupportTeamMember",
+    "SupportRoutingRule",
+
+    "Announcement",
+    "AnnouncementRead",
+]

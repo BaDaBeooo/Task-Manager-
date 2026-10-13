@@ -43,6 +43,7 @@ def build_user_response(user):
         username=user.username,
         full_name=user.full_name,
         position=user.position,
+        avatar_url=user.avatar_url,
         role=role_name(user),
         role_code=role_code(user),
         permissions=permissions_for(user),

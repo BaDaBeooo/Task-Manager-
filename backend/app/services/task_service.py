@@ -12,6 +12,18 @@ from ..models.task import (
 )
 from ..schemas.task import TaskCreate, TaskUpdate
 from .notification_service import create_notification
+from .telegram_service import send_notification_to_group
+from .realtime_service import realtime_manager
+
+
+# Hiển thị trạng thái bằng tiếng Việt trong notification
+def display_status(status: str | None) -> str:
+    labels = {
+        "todo": "chưa làm",
+        "in_progress": "đang làm",
+        "completed": "đã hoàn thành",
+    }
+    return labels.get(status, status or "")
 
 
 # =========================================================
@@ -24,6 +36,11 @@ def create_task(
     creator_id: int,
 ) -> Task:
 
+    if task_data.assignee_id is not None:
+        assignee = db.get(User, task_data.assignee_id)
+        if not assignee or not assignee.is_active or assignee.deleted_at is not None:
+            raise ValueError("Không thể giao công việc cho tài khoản đã khóa hoặc đã xóa.")
+
     task = Task(
         title=task_data.title,
         description=task_data.description,
@@ -35,47 +52,47 @@ def create_task(
         progress=0,
     )
 
-    # -----------------------------------------------------
-    # CREATE SUBTASKS
-    # -----------------------------------------------------
-
     for subtask_data in task_data.subtasks:
-
-        task.subtasks.append(
-            Subtask(
-                title=subtask_data.title,
-            )
-        )
+        task.subtasks.append(Subtask(title=subtask_data.title))
 
     db.add(task)
-
     db.commit()
-
     db.refresh(task)
 
-    # -----------------------------------------------------
-    # ACTIVITY LOG - TASK CREATED
-    # -----------------------------------------------------
+    realtime_manager.publish_all({
+        "type": "data_changed",
+        "entity": "task",
+        "action": "created",
+        "task_id": task.id,
+    })
 
-    activity = TaskActivity(
-        task_id=task.id,
-        user_id=creator_id,
-        action="task_created",
-    )
-
+    activity = TaskActivity(task_id=task.id, user_id=creator_id, action="task_created")
     db.add(activity)
-
     db.commit()
 
-    # -----------------------------------------------------
-    # NOTIFICATION - TASK ASSIGNED
-    # -----------------------------------------------------
+    creator = db.get(User, creator_id)
+    assignee = db.get(User, task.assignee_id) if task.assignee_id else None
+    creator_name = creator.full_name if creator else str(creator_id)
+    supporter_name = assignee.full_name if assignee else "Chưa phân công"
+    deadline_text = task.deadline.strftime("%d/%m/%Y") if task.deadline else "Không có"
 
-    if (
-        task.assignee_id is not None
-        and task.assignee_id != creator_id
-    ):
+    # Shared Telegram group: ONLY task creation.
+    try:
+        send_notification_to_group(
+            title="Task mới được tạo",
+            message=(
+                f'Task: "{task.title}"'
+                f"\nNgười tạo: {creator_name}"
+                f"\nNgười hỗ trợ: {supporter_name}"
+                f"\nƯu tiên: {task.priority}"
+                f"\nDeadline: {deadline_text}"
+            ),
+        )
+    except Exception as error:
+        print(f"[Telegram Group Notification] Task created: {error}")
 
+    # Individual Telegram + web notification for the assignee.
+    if task.assignee_id is not None and task.assignee_id != creator_id:
         create_notification(
             db=db,
             user_id=task.assignee_id,
@@ -84,6 +101,8 @@ def create_task(
             title="Task mới được giao",
             message=(
                 f'Bạn được giao task "{task.title}"'
+                f"\nNgười tạo: {creator.full_name if creator else creator_id}"
+                f"\nDeadline: {deadline_text}"
             ),
         )
 
@@ -109,29 +128,43 @@ def get_task(
 # GET TASKS
 # =========================================================
 
-def get_tasks(db: Session, current_user=None, mine: bool = False) -> list[Task]:
-    from .permissions import role_code, leader_department_ids, department_ids
-    role = role_code(current_user)
+def get_tasks(
+    db: Session,
+    current_user=None,
+    mine: bool = False,
+) -> list[Task]:
+
     statement = select(Task)
-    if role in {"admin", "supervisor"}:
-        pass
-    elif role == "leader":
-        dept_ids = leader_department_ids(db, current_user.id)
-        if dept_ids:
-            # Keep the query simple and deterministic for SQLite: derive team-visible tasks from participants.
-            participant_ids = {u.id for u in db.query(User).all() if department_ids(db, u.id) & dept_ids}
-            filters = [Task.creator_id.in_(participant_ids), Task.assignee_id.in_(participant_ids)] if participant_ids else []
-            if participant_ids: filters.append(Task.supporter_links.any(TaskSupporter.user_id.in_(participant_ids)))
-            if filters: statement = statement.where(or_(*filters))
-            else: statement = statement.where(Task.id == -1)
-        else:
-            statement = statement.where(or_(Task.assignee_id == current_user.id, Task.supporter_links.any(TaskSupporter.user_id == current_user.id)))
-    else:
-        statement = statement.where(or_(Task.assignee_id == current_user.id, Task.supporter_links.any(TaskSupporter.user_id == current_user.id)))
+
+    # -----------------------------------------------------
+    # MY TASKS
+    # -----------------------------------------------------
+
     if mine:
-        statement = statement.where(or_(Task.assignee_id == current_user.id, Task.supporter_links.any(TaskSupporter.user_id == current_user.id)))
-    statement = statement.order_by(Task.created_at.desc())
-    return list(db.scalars(statement).all())
+
+        statement = statement.where(
+
+            or_(
+
+                Task.assignee_id
+                == current_user.id,
+
+                Task.supporter_links.any(
+                    TaskSupporter.user_id
+                    == current_user.id
+                ),
+
+            )
+
+        )
+
+    statement = statement.order_by(
+        Task.created_at.desc()
+    )
+
+    return list(
+        db.scalars(statement).all()
+    )
 
 
 # =========================================================
@@ -157,6 +190,15 @@ def update_task(
     old_status = task.status
     old_priority = task.priority
     old_deadline = task.deadline
+
+    # -----------------------------------------------------
+    # VALIDATE ASSIGNEE
+    # -----------------------------------------------------
+
+    if "assignee_id" in update_data and update_data["assignee_id"] is not None:
+        assignee = db.get(User, update_data["assignee_id"])
+        if not assignee or not assignee.is_active or assignee.deleted_at is not None:
+            raise ValueError("Không thể giao công việc cho tài khoản đã khóa hoặc đã xóa.")
 
     # -----------------------------------------------------
     # UPDATE TASK
@@ -350,7 +392,7 @@ def update_task(
                 message=(
                     f'Trạng thái task "{task.title}" '
                     f'đã thay đổi từ '
-                    f'"{old_status}" sang "{new_status}"'
+                    f'"{display_status(old_status)}" sang "{display_status(new_status)}"'
                 ),
             )
 
@@ -409,6 +451,13 @@ def update_task(
                 ),
             )
 
+    realtime_manager.publish_all({
+        "type": "data_changed",
+        "entity": "task",
+        "action": "updated",
+        "task_id": task.id,
+    })
+
     return task
 
 
@@ -421,9 +470,17 @@ def delete_task(
     task: Task,
 ) -> None:
 
+    task_id = task.id
     db.delete(task)
 
     db.commit()
+
+    realtime_manager.publish_all({
+        "type": "data_changed",
+        "entity": "task",
+        "action": "deleted",
+        "task_id": task_id,
+    })
 
 
 # =========================================================
@@ -525,11 +582,11 @@ def update_subtask(
         )
 
         notification_title = (
-            "Subtask đã hoàn thành"
+            "Việc cần làm đã hoàn thành"
         )
 
         notification_message = (
-            f'Subtask "{subtask.title}" '
+            f'Việc cần làm "{subtask.title}" '
             f'trong task "{task.title}" '
             f'đã được hoàn thành'
         )
@@ -541,11 +598,11 @@ def update_subtask(
         )
 
         notification_title = (
-            "Subtask đã bỏ hoàn thành"
+            "Việc cần làm chưa hoàn thành"
         )
 
         notification_message = (
-            f'Subtask "{subtask.title}" '
+            f'Việc cần làm "{subtask.title}" '
             f'trong task "{task.title}" '
             f'đã được bỏ hoàn thành'
         )
@@ -564,6 +621,13 @@ def update_subtask(
             title=notification_title,
             message=notification_message,
         )
+
+    realtime_manager.publish_all({
+        "type": "data_changed",
+        "entity": "task",
+        "action": "updated",
+        "task_id": task.id,
+    })
 
     return subtask
 
@@ -729,8 +793,8 @@ def recalculate_task_progress(
             notification_message = (
                 f'Trạng thái task "{task.title}" '
                 f'đã thay đổi từ '
-                f'"{old_status}" sang '
-                f'"{task.status}"'
+                f'"{display_status(old_status)}" sang '
+                f'"{display_status(task.status)}"'
             )
 
         for recipient_id in recipient_ids:
@@ -743,5 +807,12 @@ def recalculate_task_progress(
                 title=notification_title,
                 message=notification_message,
             )
+
+    realtime_manager.publish_all({
+        "type": "data_changed",
+        "entity": "task",
+        "action": "updated",
+        "task_id": task.id,
+    })
 
     return task

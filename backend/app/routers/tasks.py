@@ -7,6 +7,7 @@ from ..models import (
     Subtask,
     Task,
     TaskActivity,
+    TaskComment,
     TaskSupporter,
     User,
 )
@@ -26,7 +27,7 @@ from ..services.task_service import (
     update_task,
 )
 from ..services.notification_service import create_notification
-from ..services.permissions import role_code, department_ids, leader_department_ids
+from ..services.realtime_service import realtime_manager
 
 
 router = APIRouter(
@@ -39,59 +40,111 @@ class SubtaskUpdateRequest(BaseModel):
     completed: bool
 
 
+class SubtaskCreateRequest(BaseModel):
+    title: str
+
+
+class TaskCommentCreateRequest(BaseModel):
+    content: str
+
+
 # =========================================================
 # PERMISSION HELPERS
 # =========================================================
 
 def is_admin(current_user) -> bool:
-    return role_code(current_user) == "admin"
+    """
+    Kiểm tra user hiện tại có phải Admin hay không.
+    Role hiện tại là Role object.
+    """
+
+    return (
+        current_user.role is not None
+        and current_user.role.code == "admin"
+    )
 
 
-def is_supervisor(current_user) -> bool:
-    return role_code(current_user) == "supervisor"
+def is_task_creator(
+    current_user,
+    task,
+) -> bool:
+
+    return (
+        current_user.id == task.creator_id
+    )
 
 
-def is_leader(current_user) -> bool:
-    return role_code(current_user) == "leader"
+def is_task_assignee(
+    current_user,
+    task,
+) -> bool:
+
+    return (
+        current_user.id == task.assignee_id
+    )
 
 
-def is_task_creator(current_user, task) -> bool:
-    return current_user.id == task.creator_id
+def is_task_supporter(
+    current_user,
+    task_id: int,
+    db: Session,
+) -> bool:
+
+    return (
+        db.query(TaskSupporter)
+        .filter(
+            TaskSupporter.task_id == task_id,
+            TaskSupporter.user_id == current_user.id,
+        )
+        .first()
+        is not None
+    )
 
 
-def is_task_assignee(current_user, task) -> bool:
-    return current_user.id == task.assignee_id
+def can_view_task(
+    current_user,
+    task,
+    db: Session,
+) -> bool:
+
+    if is_admin(current_user):
+        return True
+
+    if is_task_creator(
+        current_user,
+        task,
+    ):
+        return True
+
+    if is_task_assignee(
+        current_user,
+        task,
+    ):
+        return True
+
+    return is_task_supporter(
+        current_user,
+        task.id,
+        db,
+    )
 
 
-def is_task_supporter(current_user, task_id: int, db: Session) -> bool:
-    return db.query(TaskSupporter).filter(TaskSupporter.task_id == task_id, TaskSupporter.user_id == current_user.id).first() is not None
+def can_manage_task(
+    current_user,
+    task,
+) -> bool:
 
-
-def _user_department_ids(db, user_id):
-    return department_ids(db, user_id)
-
-
-def _task_in_leader_scope(current_user, task, db):
-    if not is_leader(current_user): return False
-    dept_ids = leader_department_ids(db, current_user.id)
-    if not dept_ids: return is_task_creator(current_user, task) or is_task_assignee(current_user, task) or is_task_supporter(current_user, task.id, db)
-    participant_ids = {task.creator_id, task.assignee_id}
-    participant_ids.update(x.user_id for x in task.supporter_links)
-    participant_ids.discard(None)
-    if current_user.id in participant_ids: return True
-    users = db.query(User).filter(User.id.in_(participant_ids)).all() if participant_ids else []
-    return any(department_ids(db, u.id) & dept_ids for u in users)
-
-
-def can_view_task(current_user, task, db: Session) -> bool:
-    role = role_code(current_user)
-    if role in {"admin", "supervisor"}: return True
-    if role == "leader": return _task_in_leader_scope(current_user, task, db)
-    return is_task_assignee(current_user, task) or is_task_supporter(current_user, task.id, db)
-
-
-def can_manage_task(current_user, task) -> bool:
-    return role_code(current_user) in {"admin", "supervisor"}
+    return (
+        is_admin(current_user)
+        or is_task_creator(
+            current_user,
+            task,
+        )
+        or is_task_assignee(
+            current_user,
+            task,
+        )
+    )
 
 
 # =========================================================
@@ -109,14 +162,14 @@ def create_new_task(
     db: Session = Depends(get_db),
 ):
 
-    if role_code(current_user) not in {"admin", "supervisor"}:
-        raise HTTPException(status_code=403, detail="Chỉ Admin hoặc Supervisor được tạo task.")
-
-    return create_task(
-        db=db,
-        task_data=task_data,
-        creator_id=current_user.id,
-    )
+    try:
+        return create_task(
+            db=db,
+            task_data=task_data,
+            creator_id=current_user.id,
+        )
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error))
 
 
 # =========================================================
@@ -316,6 +369,13 @@ def add_task_supporter(
             ),
         )
 
+    realtime_manager.publish_all({
+        "type": "data_changed",
+        "entity": "task",
+        "action": "updated",
+        "task_id": task_id,
+    })
+
     return supporter
 
 
@@ -420,6 +480,13 @@ def remove_task_supporter(
             ),
         )
 
+    realtime_manager.publish_all({
+        "type": "data_changed",
+        "entity": "task",
+        "action": "updated",
+        "task_id": task_id,
+    })
+
     return {
         "message": "Supporter removed successfully"
     }
@@ -452,23 +519,32 @@ def update_existing_task(
             detail="Task not found",
         )
 
-    role = role_code(current_user)
-    if role in {"admin", "supervisor"}:
-        pass
-    elif role in {"leader", "user"} and can_view_task(current_user, task, db):
-        allowed_fields = {"status", "progress"}
-        incoming = set(task_data.model_dump(exclude_unset=True).keys())
-        if not incoming or not incoming.issubset(allowed_fields):
-            raise HTTPException(status_code=403, detail="Bạn chỉ được cập nhật trạng thái/tiến độ task trong phạm vi của mình.")
-    else:
-        raise HTTPException(status_code=403, detail="Bạn không có quyền cập nhật task này.")
+    # -----------------------------------------------------
+    # ADMIN / CREATOR / ASSIGNEE
+    # -----------------------------------------------------
 
-    return update_task(
-        db=db,
-        task=task,
-        task_data=task_data,
-        user_id=current_user.id,
-    )
+    if not can_manage_task(
+        current_user,
+        task,
+    ):
+
+        raise HTTPException(
+            status_code=403,
+            detail=(
+                "You do not have permission "
+                "to update this task"
+            ),
+        )
+
+    try:
+        return update_task(
+            db=db,
+            task=task,
+            task_data=task_data,
+            user_id=current_user.id,
+        )
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error))
 
 
 # =========================================================
@@ -561,6 +637,83 @@ def update_task_subtask(
         task=task,
         user_id=current_user.id,
     )
+
+
+# =========================================================
+# ADD SUBTASK TO EXISTING TASK
+# =========================================================
+
+@router.post("/{task_id}/subtasks", status_code=status.HTTP_201_CREATED)
+def add_task_subtask(
+    task_id: int,
+    payload: SubtaskCreateRequest,
+    current_user=Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    task = get_task(db, task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    if not can_view_task(current_user, task, db):
+        raise HTTPException(status_code=403, detail="You do not have permission to add checklist items")
+    title = payload.title.strip()
+    if not title:
+        raise HTTPException(status_code=400, detail="Tên việc cần làm không được để trống")
+    if len(title) > 200:
+        raise HTTPException(status_code=400, detail="Tên việc cần làm tối đa 200 ký tự")
+
+    subtask = Subtask(task_id=task.id, title=title, completed=False)
+    db.add(subtask)
+    db.flush()
+    db.add(TaskActivity(task_id=task.id, user_id=current_user.id, subtask_id=subtask.id, action="subtask_added"))
+    db.commit()
+    db.refresh(subtask)
+    recalculate_task_progress(db=db, task=task, user_id=current_user.id)
+    realtime_manager.publish_all({"type": "data_changed", "entity": "task", "action": "updated", "task_id": task_id})
+    return {"id": subtask.id, "task_id": subtask.task_id, "title": subtask.title, "completed": subtask.completed, "created_at": subtask.created_at, "completed_at": subtask.completed_at}
+
+
+# =========================================================
+# TASK COMMENTS
+# =========================================================
+
+@router.get("/{task_id}/comments")
+def list_task_comments(
+    task_id: int,
+    current_user=Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    task = get_task(db, task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    if not can_view_task(current_user, task, db):
+        raise HTTPException(status_code=403, detail="You do not have permission to view this task")
+    comments = (db.query(TaskComment).filter(TaskComment.task_id == task_id).order_by(TaskComment.created_at.asc(), TaskComment.id.asc()).all())
+    return [{"id": c.id, "task_id": c.task_id, "user_id": c.user_id, "user_name": c.user.full_name if c.user else "Người dùng", "content": c.content, "created_at": c.created_at, "updated_at": c.updated_at} for c in comments]
+
+
+@router.post("/{task_id}/comments", status_code=status.HTTP_201_CREATED)
+def create_task_comment(
+    task_id: int,
+    payload: TaskCommentCreateRequest,
+    current_user=Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    task = get_task(db, task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    if not can_view_task(current_user, task, db):
+        raise HTTPException(status_code=403, detail="You do not have permission to comment on this task")
+    content = payload.content.strip()
+    if not content:
+        raise HTTPException(status_code=400, detail="Nội dung bình luận không được để trống")
+    if len(content) > 5000:
+        raise HTTPException(status_code=400, detail="Bình luận tối đa 5000 ký tự")
+    comment = TaskComment(task_id=task_id, user_id=current_user.id, content=content)
+    db.add(comment)
+    db.commit()
+    db.refresh(comment)
+    realtime_manager.publish_all({"type": "data_changed", "entity": "task", "action": "updated", "task_id": task_id})
+    return {"id": comment.id, "task_id": comment.task_id, "user_id": comment.user_id, "user_name": current_user.full_name, "content": comment.content, "created_at": comment.created_at, "updated_at": comment.updated_at}
 
 
 # =========================================================

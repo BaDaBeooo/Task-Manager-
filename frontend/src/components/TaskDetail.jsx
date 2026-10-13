@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 
 import api from "../services/api";
+import { parseApiDate } from "../services/realtime";
+import { resolveAvatarUrl } from "../utils/avatar";
 
 
 /*
@@ -47,7 +49,7 @@ function formatDeadline(deadline) {
     return "Không có deadline";
   }
 
-  return new Date(deadline).toLocaleDateString(
+  return parseApiDate(deadline).toLocaleDateString(
     "vi-VN",
     {
       day: "2-digit",
@@ -65,7 +67,7 @@ function formatActivityTime(datetime) {
     return "";
   }
 
-  const date = new Date(datetime);
+  const date = parseApiDate(datetime);
 
   if (Number.isNaN(date.getTime())) {
     return "";
@@ -91,7 +93,7 @@ function toDateInputValue(deadline) {
     return "";
   }
 
-  const date = new Date(deadline);
+  const date = parseApiDate(deadline);
 
   if (Number.isNaN(date.getTime())) {
     return "";
@@ -147,6 +149,11 @@ function getActivityInfo(action) {
       text: "đã thay đổi deadline",
     },
 
+    subtask_added: {
+      icon: "＋",
+      text: "đã thêm việc cần làm",
+    },
+
     completed: {
       icon: "✓",
       text: "đã hoàn thành",
@@ -192,6 +199,12 @@ function TaskDetail({
   const [updatingSubtask, setUpdatingSubtask] =
     useState(null);
 
+  const [subtaskDraft, setSubtaskDraft] = useState("");
+  const [addingSubtask, setAddingSubtask] = useState(false);
+  const [comments, setComments] = useState([]);
+  const [commentDraft, setCommentDraft] = useState("");
+  const [submittingComment, setSubmittingComment] = useState(false);
+
   const [error, setError] =
     useState("");
 
@@ -206,15 +219,6 @@ function TaskDetail({
 
   const [showDeleteConfirm, setShowDeleteConfirm] =
     useState(false);
-
-  const [currentUser, setCurrentUser] = useState(null);
-  const roleCode = String(currentUser?.role_code || currentUser?.role || "").toLowerCase();
-  const canFullEdit = roleCode === "admin" || roleCode === "supervisor";
-  const canUpdateStatus = canFullEdit || roleCode === "leader" || roleCode === "user";
-
-  useEffect(() => {
-    api.get("/auth/me").then((response) => setCurrentUser(response.data || null)).catch(() => {});
-  }, []);
 
 
   /*
@@ -278,6 +282,9 @@ function TaskDetail({
   useEffect(() => {
 
     setCurrentTask(task);
+    setComments([]);
+    setCommentDraft("");
+    loadComments();
 
 
     setFormData({
@@ -322,6 +329,48 @@ function TaskDetail({
 
   }, [task]);
 
+
+  const loadComments = async () => {
+    try {
+      const response = await api.get(`/tasks/${task.id}/comments`);
+      setComments(Array.isArray(response.data) ? response.data : []);
+    } catch (loadError) {
+      console.error("Load task comments error:", loadError);
+    }
+  };
+
+  const handleAddSubtask = async (event) => {
+    event.preventDefault();
+    const title = subtaskDraft.trim();
+    if (!title || addingSubtask) return;
+    try {
+      setAddingSubtask(true);
+      setError("");
+      await api.post(`/tasks/${task.id}/subtasks`, { title });
+      setSubtaskDraft("");
+      await loadTask();
+    } catch (addError) {
+      setError(addError.response?.data?.detail || "Không thể thêm việc cần làm.");
+    } finally {
+      setAddingSubtask(false);
+    }
+  };
+
+  const handleSubmitComment = async (event) => {
+    event.preventDefault();
+    const content = commentDraft.trim();
+    if (!content || submittingComment) return;
+    try {
+      setSubmittingComment(true);
+      const response = await api.post(`/tasks/${task.id}/comments`, { content });
+      setComments((current) => [...current, response.data]);
+      setCommentDraft("");
+    } catch (commentError) {
+      setError(commentError.response?.data?.detail || "Không thể gửi bình luận.");
+    } finally {
+      setSubmittingComment(false);
+    }
+  };
 
   /*
    * =======================================================
@@ -399,6 +448,21 @@ function TaskDetail({
    * SUBTASK CHECK / UNCHECK
    * =======================================================
    */
+
+  const handleQuickStatusChange = async (event) => {
+    const status = event.target.value;
+    try {
+      setError("");
+      setSaving(true);
+      const response = await api.put(`/tasks/${currentTask.id}`, { status });
+      setCurrentTask(response.data);
+      if (onUpdated) onUpdated(response.data);
+    } catch (statusError) {
+      setError(statusError.response?.data?.detail || "Không thể cập nhật trạng thái.");
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const handleSubtaskChange = async (
     subtask,
@@ -479,19 +543,6 @@ function TaskDetail({
    * START EDIT
    * =======================================================
    */
-
-  const handleStatusChange = async (event) => {
-    const status = event.target.value;
-    try {
-      setSaving(true); setError("");
-      const response = await api.put(`/tasks/${currentTask.id}`, { status });
-      setCurrentTask(response.data);
-      if (onUpdated) onUpdated(response.data);
-    } catch (error) {
-      setError(error.response?.data?.detail || "Không thể cập nhật trạng thái.");
-    } finally { setSaving(false); }
-  };
-
 
   const handleStartEdit = () => {
 
@@ -1197,7 +1248,8 @@ function TaskDetail({
                         key={user.id}
                         value={user.id}
                       >
-                        {user.full_name || user.username}{user.position ? ` · ${user.position}` : ""}
+                        {user.full_name ||
+                          user.username}
                       </option>
 
                     )
@@ -1269,13 +1321,27 @@ function TaskDetail({
 
                               <span className="supporter-avatar">
 
-                                {(
-                                  user.full_name ||
-                                  user.username ||
-                                  "U"
-                                )
-                                  .charAt(0)
-                                  .toUpperCase()}
+                                <span className="supporter-avatar-initial">
+                                  {(
+                                    user.full_name ||
+                                    user.username ||
+                                    "U"
+                                  )
+                                    .charAt(0)
+                                    .toUpperCase()}
+                                </span>
+
+                                {user.avatar_url && (
+                                  <img
+                                    className="supporter-avatar-image"
+                                    src={resolveAvatarUrl(user.avatar_url)}
+                                    alt=""
+                                    loading="lazy"
+                                    onError={(event) => {
+                                      event.currentTarget.style.display = "none";
+                                    }}
+                                  />
+                                )}
 
                               </span>
 
@@ -1288,7 +1354,8 @@ function TaskDetail({
                                 </strong>
 
                                 <small>
-                                  {user.position || user.role || "member"}
+                                  {user.role ||
+                                    "member"}
                                 </small>
 
                               </span>
@@ -1543,13 +1610,27 @@ function TaskDetail({
 
                           <span className="supporter-avatar">
 
-                            {(
-                              user.full_name ||
-                              user.username ||
-                              "U"
-                            )
-                              .charAt(0)
-                              .toUpperCase()}
+                            <span className="supporter-avatar-initial">
+                              {(
+                                user.full_name ||
+                                user.username ||
+                                "U"
+                              )
+                                .charAt(0)
+                                .toUpperCase()}
+                            </span>
+
+                            {user.avatar_url && (
+                              <img
+                                className="supporter-avatar-image"
+                                src={resolveAvatarUrl(user.avatar_url)}
+                                alt=""
+                                loading="lazy"
+                                onError={(event) => {
+                                  event.currentTarget.style.display = "none";
+                                }}
+                              />
+                            )}
 
                           </span>
 
@@ -1631,6 +1712,19 @@ function TaskDetail({
                   Việc cần làm
                 </h3>
 
+                <form className="subtask-add-form" onSubmit={handleAddSubtask}>
+                  <input
+                    type="text"
+                    value={subtaskDraft}
+                    onChange={(event) => setSubtaskDraft(event.target.value)}
+                    placeholder="Thêm việc cần làm..."
+                    maxLength={200}
+                    aria-label="Tên việc cần làm mới"
+                  />
+                  <button type="submit" disabled={!subtaskDraft.trim() || addingSubtask}>
+                    {addingSubtask ? "Đang thêm..." : "+ Thêm việc"}
+                  </button>
+                </form>
 
                 {loading ? (
 
@@ -1707,6 +1801,46 @@ function TaskDetail({
 
 
           {/* =================================================
+              TASK COMMENTS
+              ================================================= */}
+          <section className="task-comments-section">
+            <div className="task-comments-heading">
+              <h3>Trao đổi / Bình luận</h3>
+              <span className="task-comments-count">{comments.length}</span>
+            </div>
+
+            {comments.length === 0 ? (
+              <div className="task-comments-empty">Chưa có bình luận. Hãy để lại trao đổi đầu tiên cho công việc này.</div>
+            ) : (
+              <div className="task-comments-list">
+                {comments.map((comment) => (
+                  <article className="task-comment" key={comment.id}>
+                    <div className="task-comment-meta">
+                      <span className="task-comment-author">{comment.user_name || users.find((u) => Number(u.id) === Number(comment.user_id))?.full_name || `User #${comment.user_id}`}</span>
+                      <time className="task-comment-time">{formatActivityTime(comment.created_at)}</time>
+                    </div>
+                    <div className="task-comment-content">{comment.content}</div>
+                  </article>
+                ))}
+              </div>
+            )}
+
+            <form className="task-comment-form" onSubmit={handleSubmitComment}>
+              <textarea
+                value={commentDraft}
+                onChange={(event) => setCommentDraft(event.target.value)}
+                placeholder="Viết bình luận hoặc cập nhật tiến độ..."
+                maxLength={5000}
+                rows={2}
+                aria-label="Nội dung bình luận"
+              />
+              <button type="submit" disabled={!commentDraft.trim() || submittingComment}>
+                {submittingComment ? "Đang gửi..." : "Gửi bình luận"}
+              </button>
+            </form>
+          </section>
+
+          {/* =================================================
               ACTIVITY LOG
               ================================================= */}
 
@@ -1730,10 +1864,10 @@ function TaskDetail({
                 {[...activities]
                   .sort(
                     (a, b) =>
-                      new Date(
+                      parseApiDate(
                         b.created_at
                       ) -
-                      new Date(
+                      parseApiDate(
                         a.created_at
                       )
                   )
@@ -1806,10 +1940,9 @@ function TaskDetail({
                        */
 
                       const isSubtaskActivity =
-                        activity.action ===
-                          "completed" ||
-                        activity.action ===
-                          "uncompleted";
+                        activity.action === "completed" ||
+                        activity.action === "uncompleted" ||
+                        activity.action === "subtask_added";
 
 
                       return (
@@ -1894,7 +2027,23 @@ function TaskDetail({
 
         <div className="task-detail-footer">
 
+          {!isEditing && (
+            <div className="task-status-control">
+              <label htmlFor="task-detail-status">Trạng thái</label>
+              <select
+                id="task-detail-status"
+                value={currentTask.status || "todo"}
+                onChange={handleQuickStatusChange}
+                disabled={saving}
+              >
+                <option value="todo">Chưa làm</option>
+                <option value="in_progress">Đang làm</option>
+                <option value="completed">Hoàn thành</option>
+              </select>
+            </div>
+          )}
 
+          <div className="task-detail-footer-actions">
           {isEditing ? (
 
             <>
@@ -1934,32 +2083,33 @@ function TaskDetail({
 
             <>
 
-              {canFullEdit && <button
+              <button
                 className="secondary-button"
-                onClick={handleStartEdit}
+                onClick={
+                  handleStartEdit
+                }
                 type="button"
               >
-                <span>✏️ Chỉnh sửa</span>
-              </button>}
+                <span>
+                  ✏️ Chỉnh sửa
+                </span>
+              </button>
 
 
-              {canFullEdit && <button
+              <button
                 className="danger-button"
-                onClick={() => setShowDeleteConfirm(true)}
+                onClick={() =>
+                  setShowDeleteConfirm(
+                    true
+                  )
+                }
                 type="button"
               >
-                <span>🗑️ Xóa</span>
-              </button>}
+                <span>
+                  🗑️ Xóa
+                </span>
+              </button>
 
-
-              {canUpdateStatus && <label className="task-status-inline">
-                <span>Trạng thái</span>
-                <select value={currentTask.status} onChange={handleStatusChange} disabled={saving}>
-                  <option value="todo">Chưa làm</option>
-                  <option value="in_progress">Đang làm</option>
-                  <option value="completed">Hoàn thành</option>
-                </select>
-              </label>}
 
               <button
                 className="secondary-button"
@@ -1974,6 +2124,7 @@ function TaskDetail({
             </>
 
           )}
+          </div>
 
         </div>
 

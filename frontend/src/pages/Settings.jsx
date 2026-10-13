@@ -80,6 +80,9 @@ function Settings() {
 
   const [changingUserId, setChangingUserId] =
     useState(null);
+  const [resetTarget, setResetTarget] = useState(null);
+  const [resetNewPassword, setResetNewPassword] = useState("");
+  const [resetConfirmPassword, setResetConfirmPassword] = useState("");
 
   const [editingPositionUserId, setEditingPositionUserId] =
     useState(null);
@@ -114,7 +117,7 @@ function Settings() {
       ]);
       let usersResponse = { data: [] };
       if (String(meResponse.data?.role_code || meResponse.data?.role || "").toLowerCase() === "admin") {
-        usersResponse = await api.get("/users");
+        usersResponse = await api.get("/users?include_inactive=true");
       }
 
 
@@ -783,105 +786,40 @@ function Settings() {
   // RESET PASSWORD
   // =====================================================
 
-  const handleResetPassword = async (
-    user
-  ) => {
+  const handleResetPassword = (user) => {
+    if (!isAdmin || !user || changingUserId !== null) return;
+    setError("");
+    setResetTarget(user);
+    setResetNewPassword("");
+    setResetConfirmPassword("");
+  };
 
-    if (!isAdmin) {
+  const submitResetPassword = async (event) => {
+    event.preventDefault();
+    if (!isAdmin || !resetTarget) return;
+    if (resetNewPassword.length < 6) {
+      setError("Mật khẩu phải có ít nhất 6 ký tự.");
       return;
     }
-
-
-    const newPassword =
-      window.prompt(
-        `Nhập mật khẩu mới cho ${user.full_name}:\n\n` +
-        "User sẽ phải đổi lại mật khẩu sau khi đăng nhập."
-      );
-
-
-    if (
-      newPassword === null
-    ) {
-
+    if (resetNewPassword !== resetConfirmPassword) {
+      setError("Mật khẩu xác nhận không khớp.");
       return;
-
     }
-
-
-    if (
-      newPassword.length < 6
-    ) {
-
-      setError(
-        "Mật khẩu phải có ít nhất 6 ký tự."
-      );
-
-      return;
-
-    }
-
-
     try {
-
-      setChangingUserId(
-        user.id
-      );
-
+      setChangingUserId(resetTarget.id);
       setError("");
-
-
-      await api.post(
-        `/users/${user.id}/reset-password`,
-        {
-          new_password:
-            newPassword,
-        }
-      );
-
-
-      setUsers(
-        (currentUsers) =>
-          currentUsers.map(
-            (item) =>
-              item.id === user.id
-                ? {
-                    ...item,
-                    must_change_password:
-                      true,
-                  }
-                : item
-          )
-      );
-
-
-      window.alert(
-        "Đã reset mật khẩu.\n\n" +
-        "User sẽ phải đổi mật khẩu khi đăng nhập."
-      );
-
-
+      await api.post(`/users/${resetTarget.id}/reset-password`, { new_password: resetNewPassword });
+      setUsers((items) => items.map((item) => item.id === resetTarget.id ? { ...item, must_change_password: true } : item));
+      setResetTarget(null);
+      setResetNewPassword("");
+      setResetConfirmPassword("");
+      window.alert(`Đã reset mật khẩu cho ${resetTarget.full_name}. Tài khoản sẽ phải đổi mật khẩu khi đăng nhập.`);
     } catch (error) {
-
-      console.error(
-        "Reset password error:",
-        error
-      );
-
-
-      setError(
-        error.response?.data?.detail ||
-        "Không thể reset mật khẩu."
-      );
-
-
+      console.error("Reset password error:", error);
+      setError(error.response?.data?.detail || "Không thể reset mật khẩu.");
     } finally {
-
-      setChangingUserId(
-        null
-      );
-
+      setChangingUserId(null);
     }
-
   };
 
 
@@ -966,6 +904,51 @@ function Settings() {
 
     }
 
+  };
+
+
+  // =====================================================
+  // DELETE USER ACCOUNT
+  // =====================================================
+
+  const handleDeleteUser = async (
+    user
+  ) => {
+
+    if (!isAdmin || user.id === currentUser?.id) {
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Xóa tài khoản "${user.full_name}"?\n\nTài khoản sẽ không thể đăng nhập và không còn xuất hiện trong danh sách giao việc / hỗ trợ. Dữ liệu lịch sử liên quan sẽ được giữ lại.`
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      setChangingUserId(user.id);
+      setError("");
+
+      await api.delete(`/users/${user.id}`);
+
+      setUsers((currentUsers) =>
+        currentUsers.filter((item) => item.id !== user.id)
+      );
+
+      if (editingPositionUserId === user.id) {
+        handleCancelEditPosition();
+      }
+    } catch (error) {
+      console.error("Delete user error:", error);
+      setError(
+        error.response?.data?.detail ||
+        "Không thể xóa tài khoản."
+      );
+    } finally {
+      setChangingUserId(null);
+    }
   };
 
 
@@ -1326,6 +1309,8 @@ function Settings() {
                         <UserAvatar
                           user={user}
                           size="medium"
+                          showName={false}
+                          showRole={false}
                         />
 
                         <div
@@ -1607,6 +1592,25 @@ function Settings() {
                             </button>
 
                           )}
+
+
+                        {isAdmin && !isCurrentUser && (
+
+                          <button
+                            className="danger-button"
+                            type="button"
+                            disabled={isChanging}
+                            onClick={() =>
+                              handleDeleteUser(user)
+                            }
+                            style={{
+                              background: "#7f1d1d",
+                            }}
+                          >
+                            Xóa tài khoản
+                          </button>
+
+                        )}
 
                       </div>
 
@@ -2190,6 +2194,33 @@ function Settings() {
 
         </div>
 
+      )}
+
+      {resetTarget && (
+        <div className="avatar-crop-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && changingUserId === null) setResetTarget(null); }}>
+          <section className="avatar-crop-dialog reset-password-dialog" role="dialog" aria-modal="true" aria-labelledby="reset-password-title">
+            <div className="avatar-crop-heading">
+              <div>
+                <h2 id="reset-password-title">Reset mật khẩu</h2>
+                <p>Tài khoản: <strong>{resetTarget.full_name}</strong> (@{resetTarget.username})</p>
+              </div>
+              <button type="button" className="avatar-crop-close" onClick={() => setResetTarget(null)} disabled={changingUserId !== null}>×</button>
+            </div>
+            <form onSubmit={submitResetPassword}>
+              <label className="reset-password-label">Mật khẩu mới
+                <input autoFocus type="password" autoComplete="new-password" minLength={6} value={resetNewPassword} onChange={(event) => setResetNewPassword(event.target.value)} required />
+              </label>
+              <label className="reset-password-label">Xác nhận mật khẩu
+                <input type="password" autoComplete="new-password" minLength={6} value={resetConfirmPassword} onChange={(event) => setResetConfirmPassword(event.target.value)} required />
+              </label>
+              <p className="reset-password-hint">Người dùng sẽ được yêu cầu đổi mật khẩu khi đăng nhập lần tiếp theo.</p>
+              <div className="avatar-crop-actions">
+                <button type="button" className="secondary-button" onClick={() => setResetTarget(null)} disabled={changingUserId !== null}>Hủy</button>
+                <button type="submit" className="primary-button" disabled={changingUserId === resetTarget.id}>{changingUserId === resetTarget.id ? "Đang reset…" : "Xác nhận reset"}</button>
+              </div>
+            </form>
+          </section>
+        </div>
       )}
 
     </div>

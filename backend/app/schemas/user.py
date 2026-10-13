@@ -27,6 +27,7 @@ class UserResponse(BaseModel):
     username: str
     full_name: str
     position: str | None = None
+    avatar_url: str | None = None
     role: str
     is_active: bool
     must_change_password: bool

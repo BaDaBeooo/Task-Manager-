@@ -154,6 +154,18 @@ def migrate_database():
             print("[Database] Added users.position")
 
         # -------------------------------------------------
+        # ADD avatar_url
+        # -------------------------------------------------
+
+        if "avatar_url" not in columns:
+            with engine.begin() as connection:
+                connection.execute(
+                    text("ALTER TABLE users ADD COLUMN avatar_url VARCHAR(255)")
+                )
+            columns.append("avatar_url")
+            print("[Database] Added users.avatar_url")
+
+        # -------------------------------------------------
         # PRESERVE LEGACY JOB TITLE BEFORE ROLE MIGRATION
         # -------------------------------------------------
 
@@ -189,6 +201,24 @@ def migrate_database():
                 connection.execute(text("ALTER TABLE users ADD COLUMN telegram_link_code_expires_at DATETIME"))
             columns.append("telegram_link_code_expires_at")
             print("[Database] Added users.telegram_link_code_expires_at")
+
+        # -------------------------------------------------
+        # ADD deleted_at
+        # -------------------------------------------------
+
+        if "deleted_at" not in columns:
+            with engine.begin() as connection:
+                connection.execute(
+                    text(
+                        """
+                        ALTER TABLE users
+                        ADD COLUMN deleted_at DATETIME
+                        """
+                    )
+                )
+            columns.append("deleted_at")
+            print("[Database] Added users.deleted_at")
+
 
         # -------------------------------------------------
         # ADD must_change_password
