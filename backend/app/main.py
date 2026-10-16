@@ -30,6 +30,7 @@ from .models.task import (
     Subtask,
     TaskSupporter,
     TaskActivity,
+    TaskAttachment,
 )
 
 from .models.notification import (
@@ -45,6 +46,8 @@ from .models.organization import (
 )
 
 from .models.announcement import Announcement, AnnouncementRead
+from .models.customer import CustomerCompany, CustomerCompanyGrant, CustomerContact
+from .models.document_library import LibraryFolder, LibraryDocument, LibraryDocumentVersion
 
 from .models.support import (
     SupportTicket,
@@ -87,6 +90,8 @@ from .routers.support_org import (
 
 from .routers.announcements import router as announcements_router
 from .routers.telegram import router as telegram_router
+from .routers.customers import router as customers_router
+from .routers.document_library import router as document_library_router
 from .services.telegram_service import telegram_poller
 
 
@@ -120,6 +125,19 @@ def migrate_database():
 
     tables = inspector.get_table_names()
 
+
+    # -----------------------------------------------------
+    # CUSTOMER CONTACT ROLE PERMISSIONS
+    # -----------------------------------------------------
+    if "customer_contacts" in tables:
+        contact_columns = {column["name"] for column in inspector.get_columns("customer_contacts")}
+        with engine.begin() as connection:
+            if "view_roles" not in contact_columns:
+                connection.execute(text("ALTER TABLE customer_contacts ADD COLUMN view_roles VARCHAR(300) NOT NULL DEFAULT 'admin,supervisor,leader,user'"))
+                print("[Database] Added customer_contacts.view_roles (legacy contacts remain visible)")
+            if "edit_roles" not in contact_columns:
+                connection.execute(text("ALTER TABLE customer_contacts ADD COLUMN edit_roles VARCHAR(300) NOT NULL DEFAULT 'admin'"))
+                print("[Database] Added customer_contacts.edit_roles")
 
     # -----------------------------------------------------
     # USERS
@@ -511,6 +529,8 @@ app.include_router(
 app.include_router(announcements_router)
 
 app.include_router(telegram_router)
+app.include_router(customers_router)
+app.include_router(document_library_router)
 
 
 # =========================================================

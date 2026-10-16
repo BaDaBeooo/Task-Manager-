@@ -335,10 +335,16 @@ function TaskModal({ onClose, onCreated }) {
         );
 
       }
-
+   /*
+       * STEP 3
+       * SEND GROUP NOTIFICATION AFTER SUPPORTERS ARE SAVED
+       */
+      await api.post(
+        `/tasks/${createdTask.id}/notify-created-group`
+      );
 
       /*
-       * STEP 3
+       * STEP 4
        * LOAD FULL TASK
        *
        * Để response có supporters

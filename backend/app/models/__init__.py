@@ -6,6 +6,7 @@ from .task import (
     TaskSupporter,
     TaskActivity,
     TaskComment,
+    TaskAttachment,
 )
 
 from .user import User
@@ -41,6 +42,7 @@ __all__ = [
     "TaskSupporter",
     "TaskActivity",
     "TaskComment",
+    "TaskAttachment",
 
     "Notification",
 

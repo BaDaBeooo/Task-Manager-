@@ -204,6 +204,9 @@ function TaskDetail({
   const [comments, setComments] = useState([]);
   const [commentDraft, setCommentDraft] = useState("");
   const [submittingComment, setSubmittingComment] = useState(false);
+  const [attachments, setAttachments] = useState([]);
+  const [uploadingAttachment, setUploadingAttachment] = useState(false);
+  const [attachmentError, setAttachmentError] = useState("");
 
   const [error, setError] =
     useState("");
@@ -285,6 +288,9 @@ function TaskDetail({
     setComments([]);
     setCommentDraft("");
     loadComments();
+    api.get(`/tasks/${task.id}/attachments`)
+      .then((response) => setAttachments(Array.isArray(response.data) ? response.data : []))
+      .catch((loadError) => console.error("Load task attachments error:", loadError));
 
 
     setFormData({
@@ -336,6 +342,67 @@ function TaskDetail({
       setComments(Array.isArray(response.data) ? response.data : []);
     } catch (loadError) {
       console.error("Load task comments error:", loadError);
+    }
+  };
+
+
+  const formatAttachmentSize = (bytes) => {
+    if (!Number.isFinite(Number(bytes))) return "";
+    const size = Number(bytes);
+    if (size < 1024) return `${size} B`;
+    if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
+    return `${(size / (1024 * 1024)).toFixed(2)} MB`;
+  };
+
+  const handleUploadAttachment = async (event) => {
+    const selected = Array.from(event.target.files || []);
+    event.target.value = "";
+    if (!selected.length || uploadingAttachment) return;
+    setUploadingAttachment(true);
+    setAttachmentError("");
+    try {
+      for (const file of selected) {
+        if (file.size > 50 * 1024 * 1024) {
+          throw new Error(`File "${file.name}" vượt quá giới hạn 50 MB.`);
+        }
+        const body = new FormData();
+        body.append("file", file);
+        const response = await api.post(`/tasks/${task.id}/attachments`, body, {
+          headers: { "Content-Type": "multipart/form-data" },
+        });
+        setAttachments((current) => [response.data, ...current]);
+      }
+    } catch (uploadError) {
+      setAttachmentError(uploadError.response?.data?.detail || uploadError.message || "Không thể tải file lên.");
+    } finally {
+      setUploadingAttachment(false);
+    }
+  };
+
+  const handleDownloadAttachment = async (attachment) => {
+    try {
+      const response = await api.get(`/tasks/${task.id}/attachments/${attachment.id}/download`, { responseType: "blob" });
+      const url = URL.createObjectURL(response.data);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = attachment.original_name || "attachment";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    } catch (downloadError) {
+      setAttachmentError(downloadError.response?.data?.detail || "Không thể tải file xuống.");
+    }
+  };
+
+  const handleDeleteAttachment = async (attachment) => {
+    if (!window.confirm(`Xóa file "${attachment.original_name}" khỏi task này?`)) return;
+    try {
+      await api.delete(`/tasks/${task.id}/attachments/${attachment.id}`);
+      setAttachments((current) => current.filter((item) => item.id !== attachment.id));
+      setAttachmentError("");
+    } catch (deleteError) {
+      setAttachmentError(deleteError.response?.data?.detail || "Không thể xóa file.");
     }
   };
 
@@ -1799,6 +1866,42 @@ function TaskDetail({
 
           )}
 
+
+
+          {/* =================================================
+              TASK ATTACHMENTS
+              ================================================= */}
+          <section className="task-comments-section task-attachments-section">
+            <div className="task-comments-heading">
+              <h3>File đính kèm dự án</h3>
+              <span className="task-comments-count">{attachments.length}</span>
+            </div>
+            <div className="task-attachment-toolbar">
+              <label className="task-attachment-upload">
+                {uploadingAttachment ? "Đang tải lên..." : "＋ Tải file lên"}
+                <input type="file" multiple onChange={handleUploadAttachment} disabled={uploadingAttachment} />
+              </label>
+              <span className="task-attachment-hint">Tối đa 50 MB/file</span>
+            </div>
+            {attachmentError && <div className="task-attachment-error" role="alert">{attachmentError}</div>}
+            {attachments.length === 0 ? (
+              <div className="task-comments-empty">Chưa có file đính kèm. Bạn có thể tải lên tài liệu, hình ảnh, biên bản hoặc file liên quan đến dự án.</div>
+            ) : (
+              <div className="task-attachment-list">
+                {attachments.map((attachment) => (
+                  <article className="task-attachment-item" key={attachment.id}>
+                    <div className="task-attachment-icon">▤</div>
+                    <div className="task-attachment-info">
+                      <div className="task-attachment-name" title={attachment.original_name}>{attachment.original_name}</div>
+                      <div className="task-attachment-meta">{formatAttachmentSize(attachment.size_bytes)} · {attachment.uploaded_by_name || "Người dùng"} · {formatActivityTime(attachment.created_at)}</div>
+                    </div>
+                    <button type="button" className="task-attachment-action" onClick={() => handleDownloadAttachment(attachment)}>Tải xuống</button>
+                    <button type="button" className="task-attachment-delete" onClick={() => handleDeleteAttachment(attachment)} aria-label={`Xóa ${attachment.original_name}`}>×</button>
+                  </article>
+                ))}
+              </div>
+            )}
+          </section>
 
           {/* =================================================
               TASK COMMENTS

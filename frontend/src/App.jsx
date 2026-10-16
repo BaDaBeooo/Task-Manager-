@@ -14,6 +14,8 @@ import Settings from "./pages/Settings";
 import Support from "./pages/Support";
 import SupportOrganization from "./pages/SupportOrganization";
 import Notifications from "./pages/Notifications";
+import Customers from "./pages/Customers";
+import DocumentLibrary from "./pages/DocumentLibrary";
 
 
 function ProtectedRoute({
@@ -124,6 +126,11 @@ function App() {
           }
         />
 
+
+        <Route path="/customers" element={<ProtectedRoute><Customers /></ProtectedRoute>} />
+
+        {/* DOCUMENT LIBRARY */}
+        <Route path="/document-library" element={<ProtectedRoute><DocumentLibrary /></ProtectedRoute>} />
 
         {/* SUPPORT */}
 

@@ -132,7 +132,13 @@ class Task(Base):
         "TaskActivity",
         back_populates="task",
         cascade="all, delete-orphan",
-)
+    )
+
+    attachments = relationship(
+        "TaskAttachment",
+        back_populates="task",
+        cascade="all, delete-orphan",
+    )
 
 class Subtask(Base):
     __tablename__ = "subtasks"
@@ -231,3 +237,19 @@ class TaskComment(Base):
 
     task = relationship("Task")
     user = relationship("User")
+
+
+class TaskAttachment(Base):
+    __tablename__ = "task_attachments"
+
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    task_id: Mapped[int] = mapped_column(ForeignKey("tasks.id"), nullable=False, index=True)
+    uploaded_by_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+    original_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    stored_name: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
+    content_type: Mapped[str | None] = mapped_column(String(150), nullable=True)
+    size_bytes: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+
+    task = relationship("Task", back_populates="attachments")
+    uploaded_by = relationship("User")

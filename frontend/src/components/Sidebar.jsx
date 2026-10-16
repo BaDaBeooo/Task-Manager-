@@ -206,6 +206,21 @@ function Sidebar() {
         </NavLink>
 
 
+        {/* CUSTOMERS & CONTACTS */}
+        <NavLink
+          to="/customers"
+          className={navClass}
+        >
+          <span>🤝</span>
+          <span>Khách hàng & Đối tác</span>
+        </NavLink>
+
+        {/* DOCUMENT LIBRARY */}
+        <NavLink to="/document-library" className={navClass}>
+          <span>🗂️</span>
+          <span>Kho dữ liệu</span>
+        </NavLink>
+
         {/* SUPPORT */}
 
         <NavLink

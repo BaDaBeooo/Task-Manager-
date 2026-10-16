@@ -76,20 +76,6 @@ def create_task(
     supporter_name = assignee.full_name if assignee else "Chưa phân công"
     deadline_text = task.deadline.strftime("%d/%m/%Y") if task.deadline else "Không có"
 
-    # Shared Telegram group: ONLY task creation.
-    try:
-        send_notification_to_group(
-            title="Task mới được tạo",
-            message=(
-                f'Task: "{task.title}"'
-                f"\nNgười tạo: {creator_name}"
-                f"\nNgười hỗ trợ: {supporter_name}"
-                f"\nƯu tiên: {task.priority}"
-                f"\nDeadline: {deadline_text}"
-            ),
-        )
-    except Exception as error:
-        print(f"[Telegram Group Notification] Task created: {error}")
 
     # Individual Telegram + web notification for the assignee.
     if task.assignee_id is not None and task.assignee_id != creator_id:
@@ -816,3 +802,41 @@ def recalculate_task_progress(
     })
 
     return task
+
+
+def send_task_created_group_notification(db: Session, task: Task) -> bool:
+    """Send task-created message after supporter assignments are saved."""
+    creator = db.get(User, task.creator_id)
+    assignee = db.get(User, task.assignee_id) if task.assignee_id else None
+
+    creator_name = creator.full_name if creator else str(task.creator_id)
+    assignee_name = assignee.full_name if assignee else "Chưa phân công"
+
+    supporter_names = [
+        supporter.user.full_name
+        for supporter in task.supporter_links
+        if supporter.user is not None
+    ]
+    supporters_text = ", ".join(supporter_names) if supporter_names else "Chưa phân công"
+
+    deadline_text = (
+        task.deadline.strftime("%d/%m/%Y")
+        if task.deadline
+        else "Không có"
+    )
+
+    try:
+        return send_notification_to_group(
+            title="Task mới được tạo",
+            message=(
+                f'Task: "{task.title}"'
+                f"\nNgười tạo: {creator_name}"
+                f"\nChủ quản: {assignee_name}"
+                f"\nNgười hỗ trợ: {supporters_text}"
+                f"\nƯu tiên: {task.priority}"
+                f"\nDeadline: {deadline_text}"
+            ),
+        )
+    except Exception as error:
+        print(f"[Telegram Group Notification] Task created: {error}")
+        return False

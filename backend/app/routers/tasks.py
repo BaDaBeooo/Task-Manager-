@@ -1,5 +1,10 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
 from pydantic import BaseModel
+from fastapi.responses import FileResponse
+from pathlib import Path
+from uuid import uuid4
+import os
+import mimetypes
 from sqlalchemy.orm import Session
 
 from ..database.connection import get_db
@@ -8,6 +13,7 @@ from ..models import (
     Task,
     TaskActivity,
     TaskComment,
+    TaskAttachment,
     TaskSupporter,
     User,
 )
@@ -717,6 +723,138 @@ def create_task_comment(
 
 
 # =========================================================
+# TASK FILE ATTACHMENTS (50 MB per file)
+# =========================================================
+
+TASK_ATTACHMENT_LIMIT = 50 * 1024 * 1024
+_DEFAULT_ATTACHMENT_DIR = Path(__file__).resolve().parents[2] / "storage" / "task_attachments"
+TASK_ATTACHMENT_DIR = Path(os.getenv("TASK_ATTACHMENT_DIR", str(_DEFAULT_ATTACHMENT_DIR))).resolve()
+TASK_ATTACHMENT_DIR.mkdir(parents=True, exist_ok=True)
+
+
+def _attachment_payload(item):
+    return {
+        "id": item.id,
+        "task_id": item.task_id,
+        "original_name": item.original_name,
+        "content_type": item.content_type or "application/octet-stream",
+        "size_bytes": item.size_bytes,
+        "uploaded_by_id": item.uploaded_by_id,
+        "uploaded_by_name": item.uploaded_by.full_name if item.uploaded_by else "Người dùng",
+        "created_at": item.created_at,
+    }
+
+
+@router.get("/{task_id}/attachments")
+def list_task_attachments(
+    task_id: int,
+    current_user=Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    task = get_task(db, task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    if not can_view_task(current_user, task, db):
+        raise HTTPException(status_code=403, detail="You do not have permission to view this task")
+    items = (db.query(TaskAttachment).filter(TaskAttachment.task_id == task_id).order_by(TaskAttachment.created_at.desc(), TaskAttachment.id.desc()).all())
+    return [_attachment_payload(item) for item in items]
+
+
+@router.post("/{task_id}/attachments", status_code=status.HTTP_201_CREATED)
+def upload_task_attachment(
+    task_id: int,
+    file: UploadFile = File(...),
+    current_user=Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    task = get_task(db, task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    if not can_view_task(current_user, task, db):
+        raise HTTPException(status_code=403, detail="You do not have permission to upload files to this task")
+    original_name = Path(file.filename or "attachment").name.strip() or "attachment"
+    if len(original_name) > 255:
+        original_name = original_name[-255:]
+    stored_name = f"{uuid4().hex}{Path(original_name).suffix[:20]}"
+    target = (TASK_ATTACHMENT_DIR / stored_name).resolve()
+    if target.parent != TASK_ATTACHMENT_DIR:
+        raise HTTPException(status_code=400, detail="Invalid filename")
+    size = 0
+    try:
+        with target.open("wb") as output:
+            while True:
+                chunk = file.file.read(1024 * 1024)
+                if not chunk:
+                    break
+                size += len(chunk)
+                if size > TASK_ATTACHMENT_LIMIT:
+                    output.close()
+                    target.unlink(missing_ok=True)
+                    raise HTTPException(status_code=413, detail="Mỗi file đính kèm task tối đa 50 MB")
+                output.write(chunk)
+        item = TaskAttachment(
+            task_id=task_id, uploaded_by_id=current_user.id, original_name=original_name,
+            stored_name=stored_name, content_type=file.content_type or mimetypes.guess_type(original_name)[0], size_bytes=size,
+        )
+        db.add(item)
+        db.commit()
+        db.refresh(item)
+        realtime_manager.publish_all({"type": "data_changed", "entity": "task", "action": "updated", "task_id": task_id})
+        return _attachment_payload(item)
+    except HTTPException:
+        raise
+    except Exception:
+        target.unlink(missing_ok=True)
+        db.rollback()
+        raise HTTPException(status_code=500, detail="Không thể lưu file đính kèm")
+    finally:
+        file.file.close()
+
+
+@router.get("/{task_id}/attachments/{attachment_id}/download")
+def download_task_attachment(
+    task_id: int, attachment_id: int,
+    current_user=Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    task = get_task(db, task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    if not can_view_task(current_user, task, db):
+        raise HTTPException(status_code=403, detail="You do not have permission to view this task")
+    item = db.query(TaskAttachment).filter(TaskAttachment.id == attachment_id, TaskAttachment.task_id == task_id).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="File attachment not found")
+    path = (TASK_ATTACHMENT_DIR / item.stored_name).resolve()
+    if path.parent != TASK_ATTACHMENT_DIR or not path.is_file():
+        raise HTTPException(status_code=404, detail="File is missing from storage")
+    return FileResponse(path, media_type=item.content_type or "application/octet-stream", filename=item.original_name)
+
+
+@router.delete("/{task_id}/attachments/{attachment_id}")
+def delete_task_attachment(
+    task_id: int, attachment_id: int,
+    current_user=Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    task = get_task(db, task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    item = db.query(TaskAttachment).filter(TaskAttachment.id == attachment_id, TaskAttachment.task_id == task_id).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="File attachment not found")
+    if not (can_manage_task(current_user, task) or item.uploaded_by_id == current_user.id):
+        raise HTTPException(status_code=403, detail="You do not have permission to delete this file")
+    path = (TASK_ATTACHMENT_DIR / item.stored_name).resolve()
+    db.delete(item)
+    db.commit()
+    if path.parent == TASK_ATTACHMENT_DIR:
+        path.unlink(missing_ok=True)
+    realtime_manager.publish_all({"type": "data_changed", "entity": "task", "action": "updated", "task_id": task_id})
+    return {"success": True}
+
+
+# =========================================================
 # DELETE TASK
 # =========================================================
 
@@ -753,6 +891,13 @@ def delete_existing_task(
                 "to delete this task"
             ),
         )
+
+    # Remove attachment binaries before deleting task metadata.
+    attachment_items = db.query(TaskAttachment).filter(TaskAttachment.task_id == task_id).all()
+    for attachment in attachment_items:
+        attachment_path = (TASK_ATTACHMENT_DIR / attachment.stored_name).resolve()
+        if attachment_path.parent == TASK_ATTACHMENT_DIR:
+            attachment_path.unlink(missing_ok=True)
 
     delete_task(
         db,
